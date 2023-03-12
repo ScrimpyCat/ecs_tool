@@ -64,13 +64,10 @@ defmodule EcsTool.Config do
         ]
     end
 
-    defp arch_encode(n) do
-        { iodata, factorial } = arch_encode_axes(1, n, ["(x)"], 1)
-        ["(", iodata, " / ", to_string(factorial), ")"]
-    end
+    defp arch_encode(n), do: ["(", arch_encode_axes(1, n, ["(x)"]), " / ", to_string(n + 1), ")"]
 
-    defp arch_encode_axes(i, n, iodata, prod) when i <= n, do: arch_encode_axes(i + 1, n, ["((x) - ", to_string(i), ") * "|iodata], prod * (i + 1))
-    defp arch_encode_axes(_, _, iodata, prod), do: { iodata, prod }
+    defp arch_encode_axes(i, n, iodata) when i <= n, do: arch_encode_axes(i + 1, n, ["((x) - ", to_string(i), ") / ", to_string((n - i) + 1), " * "|iodata])
+    defp arch_encode_axes(_, _, iodata), do: iodata
 
     defp arch_indexes(n) do
         Enum.drop(n..0, 1)
