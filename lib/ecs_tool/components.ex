@@ -156,4 +156,14 @@ defmodule EcsTool.Components do
 
         { deps, counts, access }
     end
+
+    def component_sizes(components, namespace) do
+        Enum.map(@types, fn { _, v } ->
+            [
+                "const size_t ", namespace, String.capitalize(to_string(v)), "ComponentSizes[] = {\n",
+                get(components, v) |> Enum.map(&(["    sizeof(", &1, "),\n"])),
+                "};\n"
+            ]
+        end)
+    end
 end
