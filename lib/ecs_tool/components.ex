@@ -99,65 +99,30 @@ defmodule EcsTool.Components do
         Enum.filter(list, &(MapSet.member?(set, &1)))
     end
 
-    def gen_sets(list), do: gen_sets(list, list, Enum.count(list), [])
+    def gen_sets([]), do: []
+    def gen_sets([h|t]), do: MapSet.new |> gen_sets([h], t) |> MapSet.to_list
 
-    defp gen_sets(_, _, 0, append), do: append
-    defp gen_sets(_, [], _, _), do: []
-    defp gen_sets(list, [h|l], n, append) do
-        [gen_sets(list, list, n - 1, [h|append])|gen_sets(list, l, n, append)]
-    end
-
-    defp flatten([], list), do: list
-    defp flatten([h|t], list) when is_list(h), do: flatten(t, flatten(h, list))
-    defp flatten(x, list), do: [x|list]
+    def gen_sets(sets, set, []), do: MapSet.put(sets, Enum.reverse(set))
+    def gen_sets(sets, set, [h|t]), do: sets |> gen_sets(set, t) |> gen_sets([h|set], t) |> gen_sets([h], t)
 
     defp to_arch_indexes(set, comps), do: Enum.map(set, fn x -> Enum.find_index(comps, &match?(^x, &1)) end)
 
-    def archetype_sets(components) do
-        comps = get(components, :archetype)
-
-        count = Enum.count(comps)
-        nil_comps = [nil|comps]
-
-        gen_sets(nil_comps, nil_comps, count, [])
-        |> flatten([])
-        |> Enum.reduce(MapSet.new, fn set, acc ->
-            set
-            |> Enum.filter(&(!is_nil(&1)))
-            |> Enum.uniq
-            |> Enum.sort
-            |> case do
-                [] -> acc
-                s -> MapSet.put(acc, s)
-            end
+    defp archetype_sets(comps) do
+        gen_sets(comps)
+        |> Enum.map(&({ &1, { Enum.count(&1), to_arch_indexes(&1, comps) } }))
+        |> Enum.sort(fn
+            { _, a }, { _, b } -> a > b
         end)
-        |> MapSet.to_list
-        |> Enum.sort(&({ Enum.count(&1), to_arch_indexes(&1, comps) } > { Enum.count(&2), to_arch_indexes(&2, comps) }))
+        |> Enum.map(fn { set, _ } -> set end)
     end
 
     def archetype_deps(components, namespace, relative \\ false, allowed_archs \\ nil) do
         comps = get(components, :archetype)
 
         count = Enum.count(comps)
-        nil_comps = [nil|comps]
+        sets = archetype_sets(comps)
 
-        sets =
-            gen_sets(nil_comps, nil_comps, count, [])
-            |> flatten([])
-            |> Enum.reduce(MapSet.new, fn set, acc ->
-                set
-                |> Enum.filter(&(!is_nil(&1)))
-                |> Enum.uniq
-                |> Enum.sort
-                |> case do
-                    [] -> acc
-                    s -> MapSet.put(acc, s)
-                end
-            end)
-            |> MapSet.to_list
-            |> Enum.sort(&({ Enum.count(&1), to_arch_indexes(&1, comps) } > { Enum.count(&2), to_arch_indexes(&2, comps) }))
-
-        { code, _ } = Enum.reduce(if(allowed_archs, do: Enum.filter(sets, &MapSet.member?(allowed_archs, &1)), else: sets), { [], { 0, "" } }, fn set, { code, { n, previous } } ->
+        { code, _ } = Enum.reduce(if(allowed_archs, do: Enum.filter(sets, &MapSet.member?(allowed_archs, Enum.sort(&1))), else: sets), { [], { 0, "" } }, fn set, { code, { n, previous } } ->
             pointers = Enum.reduce(sets, [], fn group, acc ->
                 indexed_set = Enum.map(set, &Enum.find_index(group, fn x -> x == &1 end))
                 if Enum.all?(indexed_set) do
@@ -168,7 +133,7 @@ defmodule EcsTool.Components do
                 end
             end)
 
-            current = [format_macro("ARCHETYPE_DEPENDENCIES", namespace), Enum.map(set, &(["_", &1]))]
+            current = [format_macro("ARCHETYPE_DEPENDENCIES", namespace), Enum.map(Enum.sort(set), &(["_", &1]))]
 
             code = [
                 code,
