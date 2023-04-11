@@ -3,8 +3,8 @@ defmodule EcsTool.Config do
 
     def defines(n) do
         comp_max = [
-            "#ifndef ECS_COMPONENT_ARCHETYPE_COMPONENT_MAX\n",
-            "#define ECS_COMPONENT_ARCHETYPE_COMPONENT_MAX ", to_string(n), "\n",
+            "#ifndef ECS_ARCHETYPE_COMPONENT_MAX\n",
+            "#define ECS_ARCHETYPE_COMPONENT_MAX ", to_string(n), "\n",
             "#endif\n"
         ]
 
@@ -19,14 +19,14 @@ defmodule EcsTool.Config do
         maxes = Enum.reduce(n..1, [], fn i, acc ->
             [[
                 "#ifndef ECS_COMPONENT_ARCHETYPE", to_string(i), "_MAX\n",
-                "#define ECS_COMPONENT_ARCHETYPE", to_string(i), "_MAX ECS_ARCHETYPE_ENCODE_", to_string(i - 1), "(ECS_COMPONENT_ARCHETYPE_COMPONENT_MAX)\n",
+                "#define ECS_COMPONENT_ARCHETYPE", to_string(i), "_MAX ECS_ARCHETYPE_ENCODE_", to_string(i - 1), "(ECS_ARCHETYPE_COMPONENT_MAX)\n",
                 "#endif\n\n"
             ]|acc]
         end)
 
         max = [
             "#ifndef ECS_ARCHETYPE_MAX\n",
-            "#define ECS_ARCHETYPE_MAX ", to_string(n), "\n",
+            "#define ECS_ARCHETYPE_MAX ECS_ARCHETYPE_COMPONENT_MAX\n",
             "#elif ECS_ARCHETYPE_MAX > ", to_string(n), "\n",
             "#error ECS_ARCHETYPE_MAX exceeds maximum limit. Regenerate config to support required size.\n",
             "#endif\n"
@@ -46,7 +46,7 @@ defmodule EcsTool.Config do
 
         comp_index = "#define ECS_COMPONENT_INDEX(x) ((x) & ~ECSComponentTypeMask)\n"
 
-        all_comp_max = "#define ECS_COMPONENT_MAX (ECS_COMPONENT_ARCHETYPE_COMPONENT_MAX + ECS_INDIVIDUAL_COMPONENT_MAX + ECS_DUPLICATE_COMPONENT_MAX)\n"
+        all_comp_max = "#define ECS_COMPONENT_MAX (ECS_ARCHETYPE_COMPONENT_MAX + ECS_INDIVIDUAL_COMPONENT_MAX + ECS_DUPLICATE_COMPONENT_MAX)\n"
 
         [
             comp_max, "\n",
@@ -89,6 +89,6 @@ defmodule EcsTool.Config do
 
     defp index_args(0, _, args), do: args
     defp index_args(i, n, args) do
-        index_args(i - 1, n, ["ECS_COMPONENT_ARCHETYPE_COMPONENT_MAX - ", to_string(n - i), ", "|args])
+        index_args(i - 1, n, ["ECS_ARCHETYPE_COMPONENT_MAX - ", to_string(n - i), ", "|args])
     end
 end
