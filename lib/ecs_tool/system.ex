@@ -114,4 +114,13 @@ defmodule EcsTool.System do
 
         { defines, ["ECSComponentID ", namespace, "ComponentIDList[] = {\n", id_list, "};\n"] }
     end
+
+    def component_accessors(systems, components) do
+        Enum.map(systems, fn { name, system } ->
+            EcsTool.Components.sort(components, system.read ++ system.write)
+            |> Enum.with_index(fn comp, index ->
+                ["#define ", name, "_", comp, " ", to_string(index), "\n"]
+            end)
+        end)
+    end
 end

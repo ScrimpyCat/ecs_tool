@@ -166,4 +166,19 @@ defmodule EcsTool.Components do
             ]
         end)
     end
+
+    defp get_indexes(list, a, b), do: { Enum.find_index(list, &match?(^a, &1)), Enum.find_index(list, &match?(^b, &1)) }
+
+    def sort(components, comps) do
+        Enum.sort(comps, fn a, b ->
+            with { nil, nil } <- get(components, :archetype) |> get_indexes(a, b),
+                 { nil, nil } <- get(components, :individual) |> get_indexes(a, b) do
+                true
+            else
+                { nil, _ } -> false
+                { _, nil } -> true
+                { a_index, b_index } -> a_index < b_index
+            end
+        end)
+    end
 end

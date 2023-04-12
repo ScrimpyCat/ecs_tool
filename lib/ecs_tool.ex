@@ -5,6 +5,7 @@ defmodule EcsTool do
         max_arch = opts[:min_arch] || 0
         write = opts[:write] || [:archetype_indexes, :components, :systems, :groups]
         filter_indexes = opts[:filter_indexes] || false
+        accessors_file = opts[:accessors] || nil
 
         { components, systems, groups } = extract(inputs)
         groups = EcsTool.Group.sort_systems(groups, systems)
@@ -64,6 +65,14 @@ defmodule EcsTool do
         end
 
         File.close(out)
+
+        if accessors_file do
+            { :ok, accessors_out } = File.open(accessors_file, [:write])
+
+            IO.puts(accessors_out, EcsTool.System.component_accessors(systems, components))
+
+            File.close(accessors_out)
+        end
     end
 
     defp extract(inputs, state \\ { %EcsTool.Components{}, %{}, %{} })
