@@ -127,7 +127,7 @@ defmodule EcsTool.Components do
                 indexed_set = Enum.map(set, &Enum.find_index(group, fn x -> x == &1 end))
                 if Enum.all?(indexed_set) do
                     size = Enum.count(group) |> to_string
-                    [["    ", "{ offsetof(ECSWorld, archetypes", size, "[ECS_ARCHETYPE", size, "_INDEX(", Enum.map(group, &to_macro(&1)) |> Enum.join(", "), ")]), ", format_macro("INDEX", namespace), Enum.map(indexed_set, &(["_", to_string(&1)])), " },\n"]|acc]
+                    [["    ", "{ offsetof(ECSContext, archetypes", size, "[ECS_ARCHETYPE", size, "_INDEX(", Enum.map(group, &to_macro(&1)) |> Enum.join(", "), ")]), ", format_macro("INDEX", namespace), Enum.map(indexed_set, &(["_", to_string(&1)])), " },\n"]|acc]
                 else
                     acc
                 end
