@@ -59,7 +59,7 @@ defmodule EcsTool do
             IO.puts(out, EcsTool.Group.dependencies(groups, namespace))
             IO.puts(out, EcsTool.Group.system_range(groups, namespace))
             IO.puts(out, EcsTool.Group.system_update(groups, systems, namespace))
-            IO.puts(out, EcsTool.Group.system_access(groups, systems, namespace))
+            IO.puts(out, EcsTool.Group.system_access(groups, systems, components, namespace))
             IO.puts(out, EcsTool.Group.system_graph(groups, systems, namespace))
             IO.puts(out, EcsTool.Group.groups(groups, namespace))
         end

@@ -144,13 +144,13 @@ defmodule EcsTool.Group do
         ]
     end
 
-    def system_access(groups, systems, namespace) do
+    def system_access(groups, systems, components, namespace) do
         { code, _ } = Enum.reduce(groups, { [], 0 }, fn { _, %{ name: name, priorities: priorities } }, { code, n } ->
             { accesses, count } = Enum.reduce(priorities, { [], 0 }, fn %{ systems: names }, { acc, count } ->
                 values = Enum.map(names, fn name ->
                     %{ read: read, write: write } = systems[name]
 
-                    set = Enum.sort(read ++ write)
+                    set = (read ++ write) |> Enum.filter(&(EcsTool.Components.kind(components, &1) == :archetype)) |> Enum.sort
                     dep = ["COMPONENT_SYSTEM_ACCESS_ARCHETYPE", to_string(Enum.count(set)), "(", Enum.join(set, ", "), ")"]
                     ["    { .read = ", format_access_list(read, namespace), ", .write = ", format_access_list(write, namespace), ", .archetype = ", dep, " },\n"]
                 end)

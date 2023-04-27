@@ -1,14 +1,15 @@
 defmodule EcsTool.Components do
     import EcsTool.Formatter, only: [to_macro: 1, format_macro: 2]
 
-    defstruct [archetype: { [], %{} }, individual: { [], %{} }, names: MapSet.new]
+    defstruct [archetype: { [], %{} }, individual: { [], %{} }, names: %{}]
 
+    @type component_type :: :individual | :archetype
     @type name :: String.t
     @type index :: non_neg_integer
     @type t :: %__MODULE__{
         archetype: { [name], %{ index => name } },
         individual: { [name], %{ index => name } },
-        names: MapSet.t(name)
+        names: %{ name => component_type }
     }
 
     @types %{
@@ -28,7 +29,7 @@ defmodule EcsTool.Components do
         [name|args] = String.split(args, ",")
         name = String.trim(name)
 
-        components = if MapSet.member?(names, name) do
+        components = if Map.has_key?(names, name) do
             IO.puts "\"#{name}\" component already exists"
             components
         else
@@ -44,11 +45,13 @@ defmodule EcsTool.Components do
                     { unordered, Map.put(ordered, index, name) }
             end
 
-            %{ components | field => appended, names: MapSet.put(names, name) }
+            %{ components | field => appended, names: Map.put(names, name, field) }
         end
 
         append(t, components)
     end
+
+    def kind(components, name), do: components.names[name]
 
     def get(components, field) do
         { unordered, ordered } = Map.get(components, field)
