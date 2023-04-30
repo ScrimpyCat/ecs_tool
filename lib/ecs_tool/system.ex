@@ -112,7 +112,7 @@ defmodule EcsTool.System do
 
         { defines, id_list } = gen_id_list(comps, graph(comps, comps), namespace)
 
-        { defines, ["ECSComponentID ", namespace, "ComponentIDList[] = {\n", id_list, "};\n"] }
+        { defines, ["const ECSComponentID ", namespace, "ComponentIDList[] = {\n", id_list, "};\n"] }
     end
 
     def component_accessors(systems, components) do

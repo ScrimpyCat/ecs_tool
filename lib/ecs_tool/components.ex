@@ -148,7 +148,7 @@ defmodule EcsTool.Components do
         end)
 
         deps = [
-            "ECSArchetypePointer ", namespace, "ArchetypeDependencies[] = {\n",
+            "const ECSArchetypePointer ", namespace, "ArchetypeDependencies[] = {\n",
             code,
             "};\n"
         ]

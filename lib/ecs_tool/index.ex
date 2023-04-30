@@ -76,7 +76,7 @@ defmodule EcsTool.Index do
                 "\n"
             ]
         end)
-        { ["size_t ", namespace, "ArchetypeComponentIndexes[] = {\n", groups, "};\n"], defines }
+        { ["const size_t ", namespace, "ArchetypeComponentIndexes[] = {\n", groups, "};\n"], defines }
     end
     def group([set|sets], namespace, allowed, groups, indexes, offset) do
         seqs(set)

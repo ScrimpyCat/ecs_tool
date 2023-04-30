@@ -88,7 +88,7 @@ defmodule EcsTool.Group do
         end)
 
         [
-            "ECSGroupDependency ", namespace, "GroupDependencies[] = {\n",
+            "const ECSGroupDependency ", namespace, "GroupDependencies[] = {\n",
             code,
             "};\n"
         ]
@@ -108,7 +108,7 @@ defmodule EcsTool.Group do
         end)
 
         [
-            "ECSSystemRange ", namespace, "SystemRange[] = {\n",
+            "const ECSSystemRange ", namespace, "SystemRange[] = {\n",
             code,
             "};\n"
         ]
@@ -138,7 +138,7 @@ defmodule EcsTool.Group do
         end)
 
         [
-            "ECSSystemUpdate ", namespace, "SystemUpdate[] = {\n",
+            "const ECSSystemUpdate ", namespace, "SystemUpdate[] = {\n",
             code,
             "};\n"
         ]
@@ -169,7 +169,7 @@ defmodule EcsTool.Group do
         end)
 
         [
-            "ECSSystemAccess ", namespace, "SystemAccess[] = {\n",
+            "const ECSSystemAccess ", namespace, "SystemAccess[] = {\n",
             code,
             "};\n"
         ]
@@ -279,7 +279,7 @@ defmodule EcsTool.Group do
         end)
 
         [
-            "uint8_t ", namespace, "SystemGraph[] = {\n",
+            "const uint8_t ", namespace, "SystemGraph[] = {\n",
             code,
             "};\n"
         ]
@@ -306,7 +306,7 @@ defmodule EcsTool.Group do
         end)
 
         [
-            "ECSGroup ", namespace, "Groups[] = {\n",
+            "const ECSGroup ", namespace, "Groups[] = {\n",
             code,
             "};\n"
         ]
