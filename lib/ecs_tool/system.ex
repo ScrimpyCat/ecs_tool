@@ -118,9 +118,13 @@ defmodule EcsTool.System do
     def component_accessors(systems, components) do
         Enum.map(systems, fn { name, system } ->
             EcsTool.Components.sort(components, system.read ++ system.write)
-            |> Enum.with_index(fn comp, index ->
-                ["#define ", name, "_", comp, " ", to_string(index), "\n"]
+            |> Enum.reduce({ [], 0, 0 }, fn comp, { defines, arch_index, components_index } ->
+                case EcsTool.Components.kind(components, comp) do
+                    :archetype -> { [defines, "#define ", name, "_", comp, " ", "ECS_ARCHETYPE_VAR->components[*(ECS_ARCHETYPE_COMPONENT_INDEXES_VAR + ", to_string(arch_index), ")], ECS_ARCHETYPE_VAR->entities\n"], arch_index + 1, components_index }
+                    :individual -> { [defines, "#define ", name, "_", comp, " ", "*ECS_COMPONENTS_VAR[", to_string(components_index), "].components, ECS_COMPONENTS_VAR[", to_string(components_index), "].entities\n"], arch_index, components_index + 1 }
+                end
             end)
+            |> elem(0)
         end)
     end
 end
