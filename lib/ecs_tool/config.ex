@@ -32,21 +32,27 @@ defmodule EcsTool.Config do
             "#endif\n"
         ]
 
-        individual_comp_max = [
-            "#ifndef ECS_INDIVIDUAL_COMPONENT_MAX\n",
-            "#define ECS_INDIVIDUAL_COMPONENT_MAX 0\n",
+        packed_comp_max = [
+            "#ifndef ECS_PACKED_COMPONENT_MAX\n",
+            "#define ECS_PACKED_COMPONENT_MAX 64\n",
+            "#endif\n"
+        ]
+
+        indexed_comp_max = [
+            "#ifndef ECS_INDEXED_COMPONENT_MAX\n",
+            "#define ECS_INDEXED_COMPONENT_MAX 64\n",
             "#endif\n"
         ]
 
         dup_comp_max = [
             "#ifndef ECS_DUPLICATE_COMPONENT_MAX\n",
-            "#define ECS_DUPLICATE_COMPONENT_MAX 0\n",
+            "#define ECS_DUPLICATE_COMPONENT_MAX 64\n",
             "#endif\n"
         ]
 
         comp_index = "#define ECS_COMPONENT_INDEX(x) ((x) & ~ECSComponentTypeMask)\n"
 
-        all_comp_max = "#define ECS_COMPONENT_MAX (ECS_ARCHETYPE_COMPONENT_MAX + ECS_INDIVIDUAL_COMPONENT_MAX + ECS_DUPLICATE_COMPONENT_MAX)\n"
+        all_comp_max = "#define ECS_COMPONENT_MAX (ECS_ARCHETYPE_COMPONENT_MAX + ECS_PACKED_COMPONENT_MAX + ECS_DUPLICATE_COMPONENT_MAX)\n"
 
         [
             comp_max, "\n",
@@ -55,7 +61,8 @@ defmodule EcsTool.Config do
             indexes, "\n",
             maxes,
             max, "\n",
-            individual_comp_max, "\n",
+            packed_comp_max, "\n",
+            indexed_comp_max, "\n",
             dup_comp_max, "\n",
             all_comp_max, "\n",
             comp_index

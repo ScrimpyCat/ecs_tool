@@ -1,20 +1,22 @@
 defmodule EcsTool.Components do
     import EcsTool.Formatter, only: [to_macro: 1, format_macro: 2]
 
-    defstruct [archetype: { [], %{} }, individual: { [], %{} }, names: %{}]
+    defstruct [archetype: { [], %{} }, packed: { [], %{} }, indexed: { [], %{} }, names: %{}]
 
-    @type component_type :: :individual | :archetype
+    @type component_type :: :archetype | :packed | :indexed
     @type name :: String.t
     @type index :: non_neg_integer
     @type t :: %__MODULE__{
         archetype: { [name], %{ index => name } },
-        individual: { [name], %{ index => name } },
+        packed: { [name], %{ index => name } },
+        indexed: { [name], %{ index => name } },
         names: %{ name => component_type }
     }
 
     @types %{
-        "ECS_COMPONENT" => :individual,
-        "ECS_ARCHETYPE_COMPONENT" => :archetype
+        "ECS_ARCHETYPE_COMPONENT" => :archetype,
+        "ECS_PACKED_COMPONENT" => :packed,
+        "ECS_INDEXED_COMPONENT" => :indexed
     }
 
     def extract(components \\ %__MODULE__{}, string) do
@@ -175,7 +177,8 @@ defmodule EcsTool.Components do
     def sort(components, comps) do
         Enum.sort(comps, fn a, b ->
             with { nil, nil } <- get(components, :archetype) |> get_indexes(a, b),
-                 { nil, nil } <- get(components, :individual) |> get_indexes(a, b) do
+                 { nil, nil } <- get(components, :packed) |> get_indexes(a, b),
+                 { nil, nil } <- get(components, :indexed) |> get_indexes(a, b) do
                 true
             else
                 { nil, _ } -> false

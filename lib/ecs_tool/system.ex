@@ -121,7 +121,8 @@ defmodule EcsTool.System do
             |> Enum.reduce({ [], 0, 0 }, fn comp, { defines, arch_index, components_index } ->
                 case EcsTool.Components.kind(components, comp) do
                     :archetype -> { [defines, "#define ", name, "_", comp, " ", "ECS_ARCHETYPE_VAR->components[*(ECS_ARCHETYPE_COMPONENT_INDEXES_VAR + ", to_string(arch_index), ")], ECS_ARCHETYPE_VAR->entities\n"], arch_index + 1, components_index }
-                    :individual -> { [defines, "#define ", name, "_", comp, " ", "*ECS_COMPONENTS_VAR[", to_string(components_index), "].components, ECS_COMPONENTS_VAR[", to_string(components_index), "].entities\n"], arch_index, components_index + 1 }
+                    :packed -> { [defines, "#define ", name, "_", comp, " ", "*((ECSPackedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]))->components, ((ECSPackedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]))->entities\n"], arch_index, components_index + 1 }
+                    :indexed -> { [defines, "#define ", name, "_", comp, " ", "*(ECSIndexedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]), NULL\n"], arch_index, components_index + 1 }
                 end
             end)
             |> elem(0)
