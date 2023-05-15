@@ -89,7 +89,7 @@ defmodule EcsTool.Components do
     def defines(components, namespace) do
         fun = fn
             nil, { defs, n, type } -> { defs, n + 1, type }
-            name, { defs, n, type } -> { [defs, ["#define ", to_macro(name), " ", type, " | ", Integer.to_string(n), "\n"]], n + 1, type }
+            name, { defs, n, type } -> { [defs, ["#define ", to_macro(name), " (", type, " | ", Integer.to_string(n), ")\n"]], n + 1, type }
         end
 
         Enum.map(@types, fn { _, v } ->
