@@ -150,9 +150,19 @@ defmodule EcsTool.Group do
                 values = Enum.map(names, fn name ->
                     %{ read: read, write: write } = systems[name]
 
-                    set = (read ++ write) |> Enum.filter(&(EcsTool.Components.kind(components, &1) == :archetype)) |> Enum.sort
-                    dep = ["COMPONENT_SYSTEM_ACCESS_ARCHETYPE", to_string(Enum.count(set)), "(", Enum.join(set, ", "), ")"]
-                    ["    { .read = ", format_access_list(read, namespace), ", .write = ", format_access_list(write, namespace), ", .archetype = ", dep, " },\n"]
+                    { arch_set, comp_set } = (read ++ write) |> Enum.reduce({ [], [] }, fn comp, { arch_acc, comp_acc } ->
+                        case EcsTool.Components.kind(components, comp) do
+                            :archetype -> { [comp|arch_acc], comp_acc }
+                            _ -> { arch_acc, [comp|comp_acc] }
+                        end
+                    end)
+                    dep = ["COMPONENT_SYSTEM_ACCESS_ARCHETYPE", to_string(Enum.count(arch_set)), "(", arch_set |> Enum.sort |> Enum.join(", "), ")"]
+                    comp_field = case comp_set do
+                        [] -> []
+                        set -> [", .component = { .offsets = ", concat_macro(set, format_macro("COMPONENT_OFFSET_LIST", namespace)), " }"]
+                    end
+
+                    ["    { .read = ", format_access_list(read, namespace), ", .write = ", format_access_list(write, namespace), ", .archetype = ", dep, comp_field, " },\n"]
                 end)
 
                 { [acc, values], count + Enum.count(values) }
@@ -175,8 +185,10 @@ defmodule EcsTool.Group do
         ]
     end
 
+    defp concat_macro(names, macro), do: [macro, Enum.sort(names) |> Enum.map(&(["_", &1]))]
+
     defp format_access_list([], _), do: "{ .ids = NULL, .count = 0 }"
-    defp format_access_list(names, namespace), do: ["{ .ids = ", format_macro("COMPONENT_ID_LIST", namespace), Enum.sort(names) |> Enum.map(&(["_", &1])), ", .count = ", to_string(Enum.count(names)), " }"]
+    defp format_access_list(names, namespace), do: ["{ .ids = ", concat_macro(names, format_macro("COMPONENT_ID_LIST", namespace)), ", .count = ", to_string(Enum.count(names)), " }"]
 
     defp system_access_masks(names, systems) do
         { values, set } = Enum.reduce(names, { [], MapSet.new }, fn name, { acc, set } ->

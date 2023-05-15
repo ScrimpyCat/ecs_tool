@@ -74,13 +74,13 @@ defmodule EcsTool.System do
     defp mergeable?(x, [[x|_]|_]), do: true
     defp mergeable?(_, _), do: false
 
-    defp gen_id_list(set, graph, namespace, defines \\ [], id_list \\ [], skip \\ false, n \\ 0)
-    defp gen_id_list([], _, _, defines, id_list, _, _), do: { defines, id_list }
-    defp gen_id_list([h|t], graph, namespace, defines, id_list, skip, n) do
+    defp gen_list(set, graph, macro, var, value_fun, defines \\ [], id_list \\ [], skip \\ false, n \\ 0)
+    defp gen_list([], _, _, _, _, defines, id_list, _, _), do: { defines, id_list }
+    defp gen_list([h|t], graph, macro, var, value_fun, defines, id_list, skip, n) do
         { graph, defines, id_list, merge, n } = if Map.has_key?(graph, h) do
             { graph, defines } = Enum.reduce(graph[h], { graph, defines }, fn node, { graph, defines } ->
                 defines = if Map.has_key?(graph, node) do
-                    [defines, "#define ", format_macro("COMPONENT_ID_LIST", namespace), Enum.map(node, &(["_", &1])), " (", namespace,  "ComponentIDList + ", to_string(n + index_of_sequence(h, node)), ")\n"]
+                    [defines, "#define ", macro, Enum.map(node, &(["_", &1])), " (", var, " + ", to_string(n + index_of_sequence(h, node)), ")\n"]
                 else
                     defines
                 end
@@ -90,12 +90,12 @@ defmodule EcsTool.System do
             values = if(skip, do: tl(h), else: h)
             merge = mergeable?(List.last(h), t)
 
-            { graph, defines, [id_list, "    ", Enum.map(values, &([to_macro(&1), ", "])), "\n"], merge, n + Enum.count(h) - (if merge, do: 1, else: 0) }
+            { graph, defines, [id_list, "    ", Enum.map(values, &([value_fun.(&1), ", "])), "\n"], merge, n + Enum.count(h) - (if merge, do: 1, else: 0) }
         else
             { graph, defines, id_list, false, n }
         end
 
-        gen_id_list(t, graph, namespace, defines, id_list, merge, n)
+        gen_list(t, graph, macro, var, value_fun, defines, id_list, merge, n)
     end
 
     defp put(set, []), do: set
@@ -110,9 +110,30 @@ defmodule EcsTool.System do
             |> Enum.sort(:asc)
             |> Enum.sort(&(Enum.count(&1) >= Enum.count(&2)))
 
-        { defines, id_list } = gen_id_list(comps, graph(comps, comps), namespace)
+        { defines, id_list } = gen_list(comps, graph(comps, comps), format_macro("COMPONENT_ID_LIST", namespace), [namespace, "ComponentIDList"], &to_macro/1)
 
         { defines, ["const ECSComponentID ", namespace, "ComponentIDList[] = {\n", id_list, "};\n"] }
+    end
+
+    defp filter_kind(components, kind, comps), do: Enum.filter(comps, fn c -> EcsTool.Components.kind(components, c) != kind end)
+
+    def component_offset_list(systems, components, namespace) do
+        comps =
+            systems
+            |> Map.values
+            |> Enum.reduce(MapSet.new, &(&2 |> put(filter_kind(components, :archetype, &1.read ++ &1.write))))
+            |> MapSet.to_list
+            |> Enum.sort(:asc)
+            |> Enum.sort(&(Enum.count(&1) >= Enum.count(&2)))
+
+        { defines, off_list } = gen_list(comps, graph(comps, comps), format_macro("COMPONENT_OFFSET_LIST", namespace), [namespace, "ComponentOffsetList"], fn comp ->
+            case EcsTool.Components.kind(components, comp) do
+                :packed -> ["offsetof(ECSContext, packed[(", to_macro(comp), " & ~ECSComponentTypeMask)])"]
+                :indexed -> ["offsetof(ECSContext, indexed[(", to_macro(comp), " & ~ECSComponentTypeMask)])"]
+            end
+        end)
+
+        { defines, ["const size_t ", namespace, "ComponentOffsetList[] = {\n", off_list, "};\n"] }
     end
 
     def component_accessors(systems, components) do

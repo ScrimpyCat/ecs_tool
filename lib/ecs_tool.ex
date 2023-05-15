@@ -52,6 +52,10 @@ defmodule EcsTool do
             { defines, code } = EcsTool.System.id_list(systems, namespace)
             IO.puts(out, code)
             IO.puts(out, defines)
+
+            { defines, code } = EcsTool.System.component_offset_list(systems, components, namespace)
+            IO.puts(out, code)
+            IO.puts(out, defines)
         end
 
         if Enum.find(write, &match?(:groups, &1)) do
