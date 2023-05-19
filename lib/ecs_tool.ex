@@ -74,6 +74,7 @@ defmodule EcsTool do
             { :ok, accessors_out } = File.open(accessors_file, [:write])
 
             IO.puts(accessors_out, EcsTool.System.component_accessors(systems, components))
+            IO.puts(accessors_out, EcsTool.System.component_iterators(systems, components))
 
             File.close(accessors_out)
         end

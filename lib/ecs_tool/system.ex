@@ -149,4 +149,21 @@ defmodule EcsTool.System do
             |> elem(0)
         end)
     end
+
+    def component_iterators(systems, components) do
+        EcsTool.Components.sort(components, components(systems))
+        |> Enum.map(fn comp ->
+            type = case EcsTool.Components.kind(components, comp) do
+                :archetype -> 0
+                :packed -> 1
+                :indexed -> 2
+            end
+
+            [
+                "#define ECS_ITER_TYPE_", comp, " ", comp, " ECS_ITER_IGNORE(\n",
+                "#define ECS_ITER_KIND_", comp, " ", to_string(type), "\n",
+                "#define ECS_ITER_ID_", comp, " ", to_macro(comp), "\n"
+            ]
+        end)
+    end
 end
