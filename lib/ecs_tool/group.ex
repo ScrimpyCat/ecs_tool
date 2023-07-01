@@ -156,13 +156,17 @@ defmodule EcsTool.Group do
                             _ -> { arch_acc, [comp|comp_acc] }
                         end
                     end)
-                    dep = ["COMPONENT_SYSTEM_ACCESS_ARCHETYPE", to_string(Enum.count(arch_set)), "(", arch_set |> Enum.sort |> Enum.join(", "), ")"]
+
+                    arch_deps = case arch_set do
+                        [] -> []
+                        set -> [", .archetype = COMPONENT_SYSTEM_ACCESS_ARCHETYPE", to_string(Enum.count(set)), "(", set |> Enum.sort |> Enum.join(", "), ")"]
+                    end
                     comp_field = case comp_set do
                         [] -> []
                         set -> [", .component = { .offsets = ", concat_macro(set, format_macro("COMPONENT_OFFSET_LIST", namespace)), " }"]
                     end
 
-                    ["    { .read = ", format_access_list(read, namespace), ", .write = ", format_access_list(write, namespace), ", .archetype = ", dep, comp_field, " },\n"]
+                    ["    { .read = ", format_access_list(read, namespace), ", .write = ", format_access_list(write, namespace), arch_deps, comp_field, " },\n"]
                 end)
 
                 { [acc, values], count + Enum.count(values) }
