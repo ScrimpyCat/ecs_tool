@@ -115,21 +115,21 @@ defmodule EcsTool.System do
         { defines, ["const ECSComponentID ", namespace, "ComponentIDList[] = {\n", id_list, "};\n"] }
     end
 
-    defp filter_kind(components, kind, comps), do: Enum.filter(comps, fn c -> EcsTool.Components.kind(components, c) != kind end)
+    defp filter_kind(components, kinds, comps), do: Enum.filter(comps, fn c -> EcsTool.Components.kind(components, c) not in kinds end)
 
     def component_offset_list(systems, components, namespace) do
         comps =
             systems
             |> Map.values
-            |> Enum.reduce(MapSet.new, &(&2 |> put(filter_kind(components, :archetype, &1.read ++ &1.write))))
+            |> Enum.reduce(MapSet.new, &(&2 |> put(filter_kind(components, [:archetype, :local], &1.read ++ &1.write))))
             |> MapSet.to_list
             |> Enum.sort(:asc)
             |> Enum.sort(&(Enum.count(&1) >= Enum.count(&2)))
 
         { defines, off_list } = gen_list(comps, graph(comps, comps), format_macro("COMPONENT_OFFSET_LIST", namespace), [namespace, "ComponentOffsetList"], fn comp ->
             case EcsTool.Components.kind(components, comp) do
-                :packed -> ["offsetof(ECSContext, packed[(", to_macro(comp), " & ~ECSComponentTypeMask)])"]
-                :indexed -> ["offsetof(ECSContext, indexed[(", to_macro(comp), " & ~ECSComponentTypeMask)])"]
+                :packed -> ["offsetof(ECSContext, packed[(", to_macro(comp), " & ~ECSComponentStorageMask)])"]
+                :indexed -> ["offsetof(ECSContext, indexed[(", to_macro(comp), " & ~ECSComponentStorageMask)])"]
             end
         end)
 
@@ -144,6 +144,7 @@ defmodule EcsTool.System do
                     :archetype -> { [defines, "#define ", name, "_", comp, " ", "ECS_ARCHETYPE_VAR->components[*(ECS_ARCHETYPE_COMPONENT_INDEXES_VAR + ", to_string(arch_index), ")], ECS_ARCHETYPE_VAR->entities\n"], arch_index + 1, components_index }
                     :packed -> { [defines, "#define ", name, "_", comp, " ", "*((ECSPackedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]))->components, ((ECSPackedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]))->entities\n"], arch_index, components_index + 1 }
                     :indexed -> { [defines, "#define ", name, "_", comp, " ", "*(ECSIndexedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]), NULL\n"], arch_index, components_index + 1 }
+                    :local -> { defines, arch_index, components_index }
                 end
             end)
             |> elem(0)
@@ -157,6 +158,7 @@ defmodule EcsTool.System do
                 :archetype -> 0
                 :packed -> 1
                 :indexed -> 2
+                :local -> 3
             end
 
             [

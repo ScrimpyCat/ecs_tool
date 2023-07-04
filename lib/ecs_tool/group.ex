@@ -153,6 +153,7 @@ defmodule EcsTool.Group do
                     { arch_set, comp_set } = (read ++ write) |> Enum.reduce({ [], [] }, fn comp, { arch_acc, comp_acc } ->
                         case EcsTool.Components.kind(components, comp) do
                             :archetype -> { [comp|arch_acc], comp_acc }
+                            :local -> { arch_acc, comp_acc }
                             _ -> { arch_acc, [comp|comp_acc] }
                         end
                     end)

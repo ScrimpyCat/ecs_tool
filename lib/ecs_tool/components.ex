@@ -1,22 +1,33 @@
 defmodule EcsTool.Components do
     import EcsTool.Formatter, only: [to_macro: 1, format_macro: 2]
 
-    defstruct [archetype: { [], %{} }, packed: { [], %{} }, indexed: { [], %{} }, names: %{}]
+    defstruct [archetype: { [], %{} }, packed: { [], %{} }, indexed: { [], %{} }, local: { [], %{} }, names: %{}]
 
-    @type component_type :: :archetype | :packed | :indexed
+    @type component_type :: :archetype | :packed | :indexed | :local
+    @type component_modifier :: :duplicate | :tag
     @type name :: String.t
     @type index :: non_neg_integer
     @type t :: %__MODULE__{
         archetype: { [name], %{ index => name } },
         packed: { [name], %{ index => name } },
         indexed: { [name], %{ index => name } },
-        names: %{ name => component_type }
+        local: { [name], %{ index => name } },
+        names: %{ name => { component_type, [component_modifier] } }
     }
 
     @types %{
-        "ECS_ARCHETYPE_COMPONENT" => :archetype,
-        "ECS_PACKED_COMPONENT" => :packed,
-        "ECS_INDEXED_COMPONENT" => :indexed
+        "ECS_ARCHETYPE_COMPONENT" => { :archetype, [] },
+        "ECS_PACKED_COMPONENT" => { :packed, [] },
+        "ECS_INDEXED_COMPONENT" => { :indexed, [] },
+        "ECS_LOCAL_COMPONENT" => { :local, [] },
+        "ECS_ARCHETYPE_DUPLICATE_COMPONENT" => { :archetype, [:duplicate] },
+        "ECS_PACKED_DUPLICATE_COMPONENT" => { :packed, [:duplicate] },
+        "ECS_INDEXED_DUPLICATE_COMPONENT" => { :indexed, [:duplicate] },
+        "ECS_LOCAL_DUPLICATE_COMPONENT" => { :local, [:duplicate] },
+        "ECS_ARCHETYPE_TAG" => { :archetype, [:tag] },
+        "ECS_PACKED_TAG" => { :packed, [:tag] },
+        "ECS_INDEXED_TAG" => { :indexed, [:tag] },
+        "ECS_LOCAL_TAG" => { :local, [:tag] }
     }
 
     def extract(components \\ %__MODULE__{}, string) do
@@ -25,7 +36,7 @@ defmodule EcsTool.Components do
 
     defp append([], components), do: components
     defp append([[type, args]|t], components = %{ names: names }) do
-        field = @types[type]
+        { field, modifiers } = @types[type]
         { unordered, ordered } = Map.get(components, field)
 
         [name|args] = String.split(args, ",")
@@ -47,13 +58,15 @@ defmodule EcsTool.Components do
                     { unordered, Map.put(ordered, index, name) }
             end
 
-            %{ components | field => appended, names: Map.put(names, name, field) }
+            %{ components | field => appended, names: Map.put(names, name, { field, modifiers }) }
         end
 
         append(t, components)
     end
 
-    def kind(components, name), do: components.names[name]
+    def kind(components, name), do: components.names[name] |> elem(0)
+
+    def modifiers(components, name), do: components.names[name] |> elem(1)
 
     def get(components, field) do
         { unordered, ordered } = Map.get(components, field)
@@ -89,11 +102,27 @@ defmodule EcsTool.Components do
     def defines(components, namespace) do
         fun = fn
             nil, { defs, n, type } -> { defs, n + 1, type }
-            name, { defs, n, type } -> { [defs, ["#define ", to_macro(name), " (", type, " | ", Integer.to_string(n), ")\n"]], n + 1, type }
+            name, { defs, n, type } ->
+                mods = Enum.map(modifiers(components, name), &([" | ", "ECSComponentStorageModifier", to_string(&1) |> String.capitalize]))
+
+                { [defs, ["#define ", to_macro(name), " (", type, mods, " | ", Integer.to_string(n), ")\n"]], n + 1, type }
         end
 
-        Enum.map(@types, fn { _, v } ->
-            get(components, v) |> Enum.reduce({ [], 0, "ECSComponentType#{to_string(v) |> String.capitalize}" }, fun) |> elem(0)
+        @types
+        |> Enum.map(fn { _, { t, _ } } -> t end)
+        |> Enum.uniq
+        |> Enum.map(fn
+            kind ->
+                names = get(components, kind)
+                type = case kind do
+                    :local ->
+                        offset = 0
+                        index_bits = names |> Enum.count |> Itsy.Bit.mask |> Itsy.Bit.count
+                        [" | (", to_string(offset), " << ", to_string(index_bits), ")"]
+                    _ -> []
+                end
+
+                names |> Enum.reduce({ [], 0, ["ECSComponentStorageType", to_string(kind) |> String.capitalize|type] }, fun) |> elem(0)
         end)
     end
 
@@ -121,6 +150,15 @@ defmodule EcsTool.Components do
         |> Enum.map(fn { set, _ } -> set end)
     end
 
+    defp format_as_index(components, x) do
+        { l, r } = case modifiers(components, x) do
+            [] -> { "", "" }
+            _ -> { "(", " & ~ECSComponentStorageMask)" }
+        end
+
+        [l, to_macro(x), r]
+    end
+
     def archetype_deps(components, namespace, relative \\ false, allowed_archs \\ nil) do
         comps = get(components, :archetype)
 
@@ -132,7 +170,7 @@ defmodule EcsTool.Components do
                 indexed_set = Enum.map(set, &Enum.find_index(group, fn x -> x == &1 end))
                 if Enum.all?(indexed_set) do
                     size = Enum.count(group) |> to_string
-                    [["    ", "{ offsetof(ECSContext, archetypes", size, "[ECS_ARCHETYPE", size, "_INDEX(", Enum.map(group, &to_macro(&1)) |> Enum.join(", "), ")]), ", format_macro("INDEX", namespace), Enum.map(indexed_set, &(["_", to_string(&1)])), " },\n"]|acc]
+                    [["    ", "{ offsetof(ECSContext, archetypes", size, "[ECS_ARCHETYPE", size, "_INDEX(", Enum.map(group, &format_as_index(components, &1)) |> Enum.join(", "), ")]), ", format_macro("INDEX", namespace), Enum.map(indexed_set, &(["_", to_string(&1)])), " },\n"]|acc]
                 else
                     acc
                 end
@@ -163,10 +201,25 @@ defmodule EcsTool.Components do
     end
 
     def component_sizes(components, namespace) do
-        Enum.map(@types, fn { _, v } ->
+        @types
+        |> Enum.map(fn { _, { t, _ } } -> t end)
+        |> Enum.uniq
+        |> Enum.map(fn v ->
+            { sizes, dup_sizes } = get(components, v) |> Enum.reduce({ [], [] }, fn comp, { size_acc, dup_acc } ->
+                comp_size = ["    sizeof(", comp, "),\n"]
+                if :duplicate in modifiers(components, comp) do
+                    { [["    sizeof(CCArray),\n"]|size_acc], [comp_size|dup_acc] }
+                else
+                    { [comp_size|size_acc], [["    0,\n"]|dup_acc] }
+                end
+            end)
+
             [
                 "const size_t ", namespace, String.capitalize(to_string(v)), "ComponentSizes[] = {\n",
-                get(components, v) |> Enum.map(&(["    sizeof(", &1, "),\n"])),
+                Enum.reverse(sizes),
+                "};\n",
+                "const size_t ", namespace, "Duplicate", String.capitalize(to_string(v)), "ComponentSizes[] = {\n",
+                Enum.reverse(dup_sizes),
                 "};\n"
             ]
         end)
