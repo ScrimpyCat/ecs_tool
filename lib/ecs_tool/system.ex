@@ -164,7 +164,7 @@ defmodule EcsTool.System do
             [
                 "#define ECS_ITER_TYPE_", comp, " ", comp, " ECS_ITER_IGNORE(\n",
                 "#define ECS_ITER_KIND_", comp, " ", to_string(type), "\n",
-                "#define ECS_ITER_ID_", comp, " ", to_macro(comp), "\n"
+                "#define ECS_ID_", comp, " ", to_macro(comp), "\n"
             ]
         end)
     end
