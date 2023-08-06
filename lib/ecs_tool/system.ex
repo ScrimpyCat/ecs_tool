@@ -161,9 +161,18 @@ defmodule EcsTool.System do
                 :local -> 3
             end
 
+            { declare, declare_element, nested } = if :duplicate in EcsTool.Components.modifiers(components, comp) do
+                { "ECS_ITER_DECLARE_ARRAY_VAR(", ["#define ECS_ITER_DECLARE_ELEMENT_", comp, " ", comp, " ECS_ITER_DECLARE_ASSIGN(\n"], "ECS_ITER_NESTED_ARRAY_ITERATOR ECS_ITER_IGNORE(" }
+            else
+                { [comp, " ECS_ITER_DECLARE_ASSIGN("], "", "ECS_ITER_NESTED_NONE ECS_ITER_IGNORE(" }
+            end
+
             [
                 "#define ECS_ITER_TYPE_", comp, " ", comp, " ECS_ITER_IGNORE(\n",
                 "#define ECS_ITER_KIND_", comp, " ", to_string(type), "\n",
+                "#define ECS_ITER_DECLARE_", comp, " ", declare, "\n",
+                declare_element,
+                "#define ECS_ITER_NESTED_", comp, " ", nested, "\n",
                 "#define ECS_ID_", comp, " ", to_macro(comp), "\n"
             ]
         end)
