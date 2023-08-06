@@ -22,7 +22,8 @@ defmodule EcsTool.CLI do
       * `--min-arch`, `-m MIN` - Set the minimum archetype size. Defaults to `0`.
       * `--relative-indexing`, `-r` - Enable relative indexing.
       * `--filter-indexes`, `-fi` - Enable index filtering for archetypes.
-      * `--accessors FILE`, `-a FILE` - File to write the system component accessors.
+      * `--accessors`, `-a FILE` - File to write the system component accessors.
+      * `--max-local`, `-ml MAX` - Set the maximum number of local components. Defaults to number of local components parsed.
 
       ### config
         ecs_tool config arch_count
@@ -42,6 +43,7 @@ defmodule EcsTool.CLI do
     def setup([cmd|args], opts) when cmd in ["-r", "--relative-indexing"], do: setup(args, [{ :relative_indexing, true }|opts])
     def setup([cmd|args], opts) when cmd in ["-fi", "--filter-indexes"], do: setup(args, [{ :filter_indexes, true }|opts])
     def setup([cmd, file|args], opts) when cmd in ["-a", "--accessors"], do: setup(args, [{ :accessors, file }|opts])
+    def setup([cmd, min|args], opts) when cmd in ["-ml", "--max-local"], do: setup(args, [{ :max_local, to_integer(min) }|opts])
     def setup([file], opts) do
         Enum.reduce(opts, [], fn
             { :input, input }, acc -> [{ input, File.dir?(input) }|acc]

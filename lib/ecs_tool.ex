@@ -6,6 +6,7 @@ defmodule EcsTool do
         write = opts[:write] || [:archetype_indexes, :components, :systems, :groups]
         filter_indexes = opts[:filter_indexes] || false
         accessors_file = opts[:accessors] || nil
+        max_local = opts[:max_local] || nil
 
         { components, systems, groups } = extract(inputs)
         groups = EcsTool.Group.sort_systems(groups, systems)
@@ -38,7 +39,13 @@ defmodule EcsTool do
         end
 
         if Enum.find(write, &match?(:components, &1)) do
-            IO.puts(out, EcsTool.Components.defines(components, namespace))
+            if max_local do
+                IO.puts(out, ["_Static_assert(", to_string(max_local), " == ECS_LOCAL_COMPONENT_MAX, \"Regenerate file with new ECS_LOCAL_COMPONENT_MAX value.\");\n"])
+            end
+
+            IO.puts(out, EcsTool.Components.defines(components, namespace, max_local))
+
+            IO.puts(out, EcsTool.Components.local_storage_size(components, namespace, max_local))
 
             IO.puts(out, EcsTool.Components.component_sizes(components, namespace))
 

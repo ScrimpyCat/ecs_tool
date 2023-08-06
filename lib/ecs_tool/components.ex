@@ -99,13 +99,13 @@ defmodule EcsTool.Components do
         merge(unordered, ordered, n + 1, merged)
     end
 
-    def defines(components, namespace) do
+    def defines(components, _namespace, local_max \\ nil) do
         fun = fn
-            nil, { defs, n, type } -> { defs, n + 1, type }
-            name, { defs, n, type } ->
+            nil, { defs, n, type, names } -> { defs, n + 1, type, names }
+            name, { defs, n, type, names } ->
                 mods = Enum.map(modifiers(components, name), &([" | ", "ECSComponentStorageModifier", to_string(&1) |> String.capitalize]))
 
-                { [defs, ["#define ", to_macro(name), " (", type, mods, " | ", Integer.to_string(n), ")\n"]], n + 1, type }
+                { [defs, ["#define ", to_macro(name), " (", type.(names), mods, " | ", Integer.to_string(n), ")\n"]], n + 1, type, [name|names] }
         end
 
         @types
@@ -114,16 +114,35 @@ defmodule EcsTool.Components do
         |> Enum.map(fn
             kind ->
                 names = get(components, kind)
+                type = ["ECSComponentStorageType", to_string(kind) |> String.capitalize]
                 type = case kind do
                     :local ->
-                        offset = 0
-                        index_bits = names |> Enum.count |> Itsy.Bit.mask |> Itsy.Bit.count
-                        [" | (", to_string(offset), " << ", to_string(index_bits), ")"]
-                    _ -> []
+                        index_bits = (local_max || names |> Enum.count) |> Itsy.Bit.mask |> Itsy.Bit.count |> to_string
+                        fn names ->
+                            offset = case names do
+                                [] -> "0"
+                                [h|_] -> ["(((", to_macro(h), " & ~ECSComponentStorageMask) >> ", index_bits, ") + sizeof(", if(:duplicate in modifiers(components, h), do: "CCArray", else: h), "))"]
+                            end
+                            [type, " | (", offset, " << ", index_bits, ")"]
+                        end
+                    _ -> fn _ -> type end
                 end
 
-                names |> Enum.reduce({ [], 0, ["ECSComponentStorageType", to_string(kind) |> String.capitalize|type] }, fun) |> elem(0)
+                names |> Enum.reduce({ [], 0, type, [] }, fun) |> elem(0)
         end)
+    end
+
+    def local_storage_size(components, namespace, local_max \\ nil) do
+        { count, name } = get(components, :local) |> Enum.reduce({ 0, nil }, fn name, { n, _ } -> { n + 1, name } end)
+
+        size = case count do
+            0 -> "0"
+            count ->
+                index_bits = (local_max || count) |> Itsy.Bit.mask |> Itsy.Bit.count |> to_string
+                ["(((", to_macro(name), " & ~ECSComponentStorageMask) >> ", index_bits, ") + sizeof(", if(:duplicate in modifiers(components, name), do: "CCArray", else: name), "))"]
+        end
+
+        ["#define ", format_macro("LOCAL_STORAGE_SIZE", namespace), " ", size, "\n"]
     end
 
     def filter(list, components, type) do
