@@ -242,6 +242,21 @@ defmodule EcsTool.Components do
         end)
     end
 
+    def component_lookup(components, namespace) do
+        ids = Enum.map(@storage_types, fn v ->
+            get(components, v) |> Enum.map(fn
+                nil -> ""
+                comp -> ["    [ECS_COMPONENT_BASE_INDEX(", to_macro(comp), ")] = ", to_macro(comp), ",\n"]
+            end)
+        end)
+
+        [
+            "const ECSComponentID ", namespace, "ComponentIDs[] = {\n",
+            ids,
+            "};\n"
+        ]
+    end
+
     defp get_indexes(list, a, b), do: { Enum.find_index(list, &match?(^a, &1)), Enum.find_index(list, &match?(^b, &1)) }
 
     def sort(components, comps) do

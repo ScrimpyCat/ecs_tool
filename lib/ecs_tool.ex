@@ -47,6 +47,8 @@ defmodule EcsTool do
 
             IO.puts(out, EcsTool.Components.local_storage_size(components, namespace, max_local))
 
+            IO.puts(out, EcsTool.Components.component_lookup(components, namespace))
+
             IO.puts(out, EcsTool.Components.component_sizes(components, namespace))
 
             { deps, counts, access } = EcsTool.Components.archetype_deps(components, namespace, relative, MapSet.new(filtered_set))
