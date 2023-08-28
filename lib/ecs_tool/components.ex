@@ -30,6 +30,8 @@ defmodule EcsTool.Components do
         "ECS_LOCAL_TAG" => { :local, [:tag] }
     }
 
+    @storage_types [:archetype, :packed, :indexed, :local]
+
     def extract(components \\ %__MODULE__{}, string) do
         append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")})\((.*?)\)/, string, capture: :all_but_first), components)
     end
@@ -108,10 +110,7 @@ defmodule EcsTool.Components do
                 { [defs, ["#define ", to_macro(name), " (", type.(names), mods, " | ", Integer.to_string(n), ")\n"]], n + 1, type, [name|names] }
         end
 
-        @types
-        |> Enum.map(fn { _, { t, _ } } -> t end)
-        |> Enum.uniq
-        |> Enum.map(fn
+        Enum.map(@storage_types, fn
             kind ->
                 names = get(components, kind)
                 type = ["ECSComponentStorageType", to_string(kind) |> String.capitalize]
@@ -220,10 +219,7 @@ defmodule EcsTool.Components do
     end
 
     def component_sizes(components, namespace) do
-        @types
-        |> Enum.map(fn { _, { t, _ } } -> t end)
-        |> Enum.uniq
-        |> Enum.map(fn v ->
+        Enum.map(@storage_types, fn v ->
             { sizes, dup_sizes } = get(components, v) |> Enum.reduce({ [], [] }, fn
                 nil, { size_acc, dup_acc } -> { [["    0,\n"]|size_acc], [["    0,\n"]|dup_acc] }
                 comp, { size_acc, dup_acc } ->
