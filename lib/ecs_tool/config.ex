@@ -50,7 +50,7 @@ defmodule EcsTool.Config do
             "#endif\n"
         ]
 
-        all_comp_max = "#define ECS_COMPONENT_MAX (ECS_ARCHETYPE_COMPONENT_MAX + ECS_PACKED_COMPONENT_MAX + ECS_LOCAL_COMPONENT_MAX)\n"
+        all_comp_max = "#define ECS_COMPONENT_MAX (ECS_ARCHETYPE_COMPONENT_MAX + ECS_PACKED_COMPONENT_MAX + ECS_INDEXED_COMPONENT_MAX + ECS_LOCAL_COMPONENT_MAX)\n"
 
         [
             comp_max, "\n",
