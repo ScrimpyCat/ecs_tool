@@ -231,11 +231,13 @@ defmodule EcsTool.Components do
                     end
             end)
 
+            max = ["ECS_", to_string(v) |> String.upcase, "_COMPONENT_MAX"]
+
             [
-                "const size_t ", namespace, String.capitalize(to_string(v)), "ComponentSizes[] = {\n",
+                "const size_t ", namespace, String.capitalize(to_string(v)), "ComponentSizes[", max, "] = {\n",
                 Enum.reverse(sizes),
                 "};\n",
-                "const size_t ", namespace, "Duplicate", String.capitalize(to_string(v)), "ComponentSizes[] = {\n",
+                "const size_t ", namespace, "Duplicate", String.capitalize(to_string(v)), "ComponentSizes[", max, "] = {\n",
                 Enum.reverse(dup_sizes),
                 "};\n"
             ]
@@ -251,7 +253,7 @@ defmodule EcsTool.Components do
         end)
 
         [
-            "const ECSComponentID ", namespace, "ComponentIDs[] = {\n",
+            "const ECSComponentID ", namespace, "ComponentIDs[ECS_COMPONENT_MAX] = {\n",
             ids,
             "};\n"
         ]
