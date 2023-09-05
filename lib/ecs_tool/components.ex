@@ -240,13 +240,13 @@ defmodule EcsTool.Components do
     def component_sizes(components, namespace) do
         Enum.map(@storage_types, fn v ->
             { sizes, dup_sizes } = get(components, v) |> Enum.reduce({ [], [] }, fn
-                nil, { size_acc, dup_acc } -> { [["    0,\n"]|size_acc], [["    0,\n"]|dup_acc] }
+                nil, { size_acc, dup_acc } -> { ["    0,\n"|size_acc], ["    0,\n"|dup_acc] }
                 comp, { size_acc, dup_acc } ->
                     comp_size = ["    sizeof(", comp, "),\n"]
                     if :duplicate in modifiers(components, comp) do
-                        { [["    sizeof(CCArray),\n"]|size_acc], [comp_size|dup_acc] }
+                        { ["    sizeof(CCArray),\n"|size_acc], [comp_size|dup_acc] }
                     else
-                        { [comp_size|size_acc], [["    0,\n"]|dup_acc] }
+                        { [comp_size|size_acc], ["    0,\n"|dup_acc] }
                     end
             end)
 
