@@ -117,14 +117,28 @@ defmodule EcsTool.Components do
         merge(unordered, ordered, n + 1, merged)
     end
 
-    defp to_modifier_flag({ :destructor, _ }), do: "destructor"
-    defp to_modifier_flag(modifier), do: to_string(modifier)
+    defp unique_modifier_flag(modifier, flag, allowed, unused \\ [])
+    defp unique_modifier_flag(modifier, flag, [modifier|allowed], unused), do: { flag, unused }
+    defp unique_modifier_flag(modifier, flag, [h|allowed], unused), do: unique_modifier_flag(modifier, flag, allowed, [h|unused])
+    defp unique_modifier_flag(_, _, [], unused), do: { "", unused }
+
+    defp modifier_flags(modifiers, allowed \\ [:duplicate, :tag, :destructor], acc \\ [])
+    defp modifier_flags([:duplicate|t], allowed, acc) do
+        { flag, allowed } = unique_modifier_flag(:duplicate, " | ECSComponentStorageModifierDuplicate", allowed)
+        modifier_flags([:destructor|t], allowed, [flag|acc])
+    end
+    defp modifier_flags([{ modifier, _ }|t], allowed, acc), do: modifier_flags([modifier|t], allowed, acc)
+    defp modifier_flags([modifier|t], allowed, acc) do
+        { flag, allowed } = unique_modifier_flag(modifier, [" | ECSComponentStorageModifier", to_string(modifier) |> String.capitalize], allowed)
+        modifier_flags(t, allowed, [flag|acc])
+    end
+    defp modifier_flags([], _, acc), do: acc
 
     def defines(components, _namespace, local_max \\ nil) do
         fun = fn
             nil, { defs, n, type, names } -> { defs, n + 1, type, names }
             name, { defs, n, type, names } ->
-                mods = Enum.map(modifiers(components, name), &([" | ", "ECSComponentStorageModifier", to_modifier_flag(&1) |> String.capitalize]))
+                mods = modifiers(components, name) |> modifier_flags()
 
                 { [defs, ["#define ", to_macro(name), " (", type.(names), mods, " | ", Integer.to_string(n), ")\n"]], n + 1, type, [name|names] }
         end
