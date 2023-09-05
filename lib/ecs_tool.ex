@@ -51,6 +51,8 @@ defmodule EcsTool do
 
             IO.puts(out, EcsTool.Components.component_sizes(components, namespace))
 
+            IO.puts(out, EcsTool.Components.component_destructors(components, namespace))
+
             { deps, counts, access } = EcsTool.Components.archetype_deps(components, namespace, relative, MapSet.new(filtered_set))
             IO.puts(out, deps)
             IO.puts(out, counts)

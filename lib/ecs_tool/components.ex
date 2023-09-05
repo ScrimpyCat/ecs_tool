@@ -4,7 +4,7 @@ defmodule EcsTool.Components do
     defstruct [archetype: { [], %{} }, packed: { [], %{} }, indexed: { [], %{} }, local: { [], %{} }, names: %{}]
 
     @type component_type :: :archetype | :packed | :indexed | :local
-    @type component_modifier :: :duplicate | :tag
+    @type component_modifier :: :duplicate | :tag | { :destructor, String.t }
     @type name :: String.t
     @type index :: non_neg_integer
     @type t :: %__MODULE__{
@@ -33,10 +33,26 @@ defmodule EcsTool.Components do
     @storage_types [:archetype, :packed, :indexed, :local]
 
     def extract(components \\ %__MODULE__{}, string) do
-        append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")})\((.*?)\)/, string, capture: :all_but_first), components)
+        append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")}|ECS_DESTRUCTOR)\((.*?)\)/, string, capture: :all_but_first), components)
     end
 
     defp append([], components), do: components
+    defp append([["ECS_DESTRUCTOR", args]|t], components = %{ names: names }) do
+        [destructor|args] = String.split(args, ",")
+        destructor = String.trim(destructor)
+
+        names = Enum.reduce(args, names, fn name, acc ->
+            name = String.trim(name)
+            case acc do
+                %{ ^name => { type, modifiers } } -> %{ acc | name => { type, [{ :destructor, destructor }|modifiers] } }
+                acc ->
+                    IO.puts "\"#{name}\" component does not exist"
+                    acc
+            end
+        end)
+
+        append(t, %{ components | names: names })
+    end
     defp append([[type, args]|t], components = %{ names: names }) do
         { field, modifiers } = @types[type]
         { unordered, ordered } = Map.get(components, field)
@@ -101,11 +117,14 @@ defmodule EcsTool.Components do
         merge(unordered, ordered, n + 1, merged)
     end
 
+    defp to_modifier_flag({ :destructor, _ }), do: "destructor"
+    defp to_modifier_flag(modifier), do: to_string(modifier)
+
     def defines(components, _namespace, local_max \\ nil) do
         fun = fn
             nil, { defs, n, type, names } -> { defs, n + 1, type, names }
             name, { defs, n, type, names } ->
-                mods = Enum.map(modifiers(components, name), &([" | ", "ECSComponentStorageModifier", to_string(&1) |> String.capitalize]))
+                mods = Enum.map(modifiers(components, name), &([" | ", "ECSComponentStorageModifier", to_modifier_flag(&1) |> String.capitalize]))
 
                 { [defs, ["#define ", to_macro(name), " (", type.(names), mods, " | ", Integer.to_string(n), ")\n"]], n + 1, type, [name|names] }
         end
@@ -239,6 +258,38 @@ defmodule EcsTool.Components do
                 "};\n",
                 "const size_t ", namespace, "Duplicate", String.capitalize(to_string(v)), "ComponentSizes[", max, "] = {\n",
                 Enum.reverse(dup_sizes),
+                "};\n"
+            ]
+        end)
+    end
+
+    def component_destructors(components, namespace) do
+        Enum.map(@storage_types, fn v ->
+            { destructors, dup_destructors } = get(components, v) |> Enum.reduce({ [], [] }, fn
+                nil, { destructor_acc, dup_acc } -> { ["    NULL,\n"|destructor_acc], ["    NULL,\n"|dup_acc] }
+                comp, { destructor_acc, dup_acc } ->
+                    mods = modifiers(components, comp)
+
+                    comp_destructor = case mods[:destructor] do
+                        nil -> "    NULL,\n"
+                        destructor -> ["    ", destructor, ",\n"]
+                    end
+
+                    if :duplicate in mods do
+                        { ["    ECSDuplicateDestructor,\n"|destructor_acc], [comp_destructor|dup_acc] }
+                    else
+                        { [comp_destructor|destructor_acc], ["    NULL,\n"|dup_acc] }
+                    end
+            end)
+
+            max = ["ECS_", to_string(v) |> String.upcase, "_COMPONENT_MAX"]
+
+            [
+                "const ECSComponentDestructor ", namespace, String.capitalize(to_string(v)), "ComponentDestructors[", max, "] = {\n",
+                Enum.reverse(destructors),
+                "};\n",
+                "const ECSComponentDestructor ", namespace, "Duplicate", String.capitalize(to_string(v)), "ComponentDestructors[", max, "] = {\n",
+                Enum.reverse(dup_destructors),
                 "};\n"
             ]
         end)
