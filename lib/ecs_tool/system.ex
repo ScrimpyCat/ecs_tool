@@ -201,4 +201,25 @@ defmodule EcsTool.System do
             ]
         end)
     end
+
+    defp parallel_assertion(parallel, system, components, comp \\ nil)
+    defp parallel_assertion(false, _, _, _), do: " ECS_ITER_IGNORE\n"
+    defp parallel_assertion({ :archetype, _ }, _, _, _), do: "(...) ECS_ITER_ASSERT_KIND(0, __VA_ARGS__)\n"
+    defp parallel_assertion({ comp, size }, system, components, nil), do: parallel_assertion({ EcsTool.Components.kind(components, comp), size }, system, components, comp)
+    defp parallel_assertion(_, system, components, comp) do
+        [
+            " ECS_ITER_ASSERT_TYPE\n",
+            EcsTool.Components.sort(components, system.read ++ system.write)
+            |> Enum.map(fn
+                ^comp -> ["#define ECS_ITER_ASSERT_", system.name, "_", comp, "\n"]
+                name -> ["#define ECS_ITER_ASSERT_", system.name, "_", name, " CC_ERROR(\"Must iterate with ", comp, " as the leading component\");\n"]
+            end)
+        ]
+    end
+
+    def assert_iterators(systems, components) do
+        Enum.map(systems, fn { name, system } ->
+            ["#define ECS_ITER_ASSERT_", name, parallel_assertion(system.parallel, system, components)]
+        end)
+    end
 end

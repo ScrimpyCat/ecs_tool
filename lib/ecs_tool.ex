@@ -86,6 +86,7 @@ defmodule EcsTool do
 
             IO.puts(accessors_out, EcsTool.System.component_accessors(systems, components))
             IO.puts(accessors_out, EcsTool.System.component_iterators(systems, components))
+            IO.puts(accessors_out, EcsTool.System.assert_iterators(systems, components))
 
             File.close(accessors_out)
         end
