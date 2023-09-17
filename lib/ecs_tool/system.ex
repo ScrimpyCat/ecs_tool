@@ -19,11 +19,11 @@ defmodule EcsTool.System do
     }
 
     def extract(systems \\ %{}, string) do
-        append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")})\((.*?),.*?\((.*?)\).*?,.*?\((.*?)\).*?\)/, string, capture: :all_but_first), systems)
+        append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")})\((.*?),.*?\((.*?)\).*?,.*?\((.*?)\).*?(,.*?\((.*?)\).*?|,(.*?))?\)/, string, capture: :all_but_first), systems)
     end
 
     defp append([], systems), do: systems
-    defp append([[type, name, read, write]|t], systems) do
+    defp append([[type, name, read, write|args]|t], systems) do
         parallel = @types[type]
         name = String.trim(name)
 
@@ -36,7 +36,7 @@ defmodule EcsTool.System do
 
             Map.put(systems, name, %EcsTool.System{
                 name: name,
-                parallel: parallel,
+                parallel: process_parallel_args(parallel, args),
                 read: reads,
                 write: writes
             })
@@ -44,6 +44,19 @@ defmodule EcsTool.System do
 
         append(t, systems)
     end
+
+    defp process_parallel_args(false, _), do: false
+    defp process_parallel_args(true, []), do: { :archetype, "SIZE_MAX" }
+    defp process_parallel_args(true, [_, args]) do
+        args
+        |> String.split(",", trim: true)
+        |> Enum.map(&String.trim/1)
+        |> case do
+            [comp, size] -> { comp, size }
+            [size] -> { :archetype, size }
+        end
+    end
+    defp process_parallel_args(true, [_, _, size]), do: { :archetype, String.trim(size) }
 
     def components(systems) do
         systems

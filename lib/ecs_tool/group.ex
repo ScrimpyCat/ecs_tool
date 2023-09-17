@@ -1,5 +1,5 @@
 defmodule EcsTool.Group do
-    import EcsTool.Formatter, only: [to_macro: 2, format_macro: 2]
+    import EcsTool.Formatter, only: [to_macro: 1, to_macro: 2, format_macro: 2]
     import Bitwise
 
     defstruct [name: nil, frequency: "0", dynamic: "false", priorities: []]
@@ -114,15 +114,25 @@ defmodule EcsTool.Group do
         ]
     end
 
-    def system_update(groups, systems, namespace) do
+    defp format_update(name, parallel, components, comp \\ nil)
+    defp format_update(name, false, _, _), do: ["    ECS_SYSTEM_UPDATE(", name, "),\n"]
+    defp format_update(name, { :archetype, "SIZE_MAX" }, _, _), do: ["    ECS_SYSTEM_UPDATE_PARALLEL(", name, "),\n"]
+    defp format_update(name, { :archetype, size }, _, _), do: ["    ECS_SYSTEM_UPDATE_PARALLEL_ARCHETYPE_CHUNK(", name, ", ", size, "),\n"]
+    defp format_update(name, { comp, size }, components, nil), do: format_update(name, { EcsTool.Components.kind(components, comp), size }, components, comp)
+    defp format_update(name, { kind, size }, components, comp) do
+        offset = case kind do
+            :packed -> ["offsetof(ECSContext, packed[(", to_macro(comp), " & ~ECSComponentStorageMask)].entities)"]
+            :indexed -> ["offsetof(ECSContext, indexed[(", to_macro(comp), " & ~ECSComponentStorageMask)])"]
+            :local -> ["offsetof(ECSContext, manager.map)"]
+        end
+
+        ["    ECS_SYSTEM_UPDATE_PARALLEL_CHUNK(", name, ", ", offset, ", ", size, "),\n"]
+    end
+
+    def system_update(groups, systems, components, namespace) do
         { code, _ } = Enum.reduce(groups, { [], 0 }, fn { _, %{ name: name, priorities: priorities } }, { code, n } ->
             { updates, count } = Enum.reduce(priorities, { [], 0 }, fn %{ systems: names }, { acc, count } ->
-                values = Enum.map(names, fn name ->
-                    case systems[name] do
-                        %{ parallel: false } -> ["    ECS_SYSTEM_UPDATE(", name, "),\n"]
-                        %{ parallel: true } -> ["    ECS_SYSTEM_UPDATE_PARALLEL(", name, "),\n"]
-                    end
-                end)
+                values = Enum.map(names, &format_update(&1, systems[&1].parallel, components))
 
                 { [acc, values], count + Enum.count(values) }
             end)
