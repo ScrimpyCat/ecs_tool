@@ -8,7 +8,7 @@ defmodule EcsTool do
         accessors_file = opts[:accessors] || nil
         max_local = opts[:max_local] || nil
 
-        { components, systems, groups } = extract(inputs)
+        { components, systems, groups } = extract(inputs) |> validate!
         groups = EcsTool.Group.sort_systems(groups, systems)
 
         filtered_set =
@@ -102,5 +102,58 @@ defmodule EcsTool do
 
     def config(n) do
         EcsTool.Config.defines(n) |> IO.puts
+    end
+
+    defp validate_key(valid, map, [item|items], error_formatter) do
+        if Map.has_key?(map, item) do
+            valid
+        else
+            IO.puts "#{IO.ANSI.red}#{error_formatter.(item)}#{IO.ANSI.default_color}"
+            :invalid
+        end
+        |> validate_key(map, items, error_formatter)
+    end
+    defp validate_key(valid, _, [], _), do: valid
+
+    defmodule ValidationError do
+        defexception message: "Validation failure"
+    end
+
+    defp validate!({ components, systems, groups }) do
+        valid = Enum.reduce(systems, :valid, fn { name, system }, valid ->
+            error = &("Error validating system \"#{name}\" #{&1} components: Component \"#{&2}\" does not exist.")
+
+            case system.parallel do
+                { comp, _ } when is_binary(comp) -> validate_key(valid, Map.new(system.read ++ system.write, &({ &1, &1 })), [comp], &("Error validating system \"#{name}\" parallelism: Missing read or write access for component \"#{&1}\"."))
+                _ -> valid
+            end
+            |> validate_key(components.names, system.read, &(error.("read", &1)))
+            |> validate_key(components.names, system.write, &(error.("write", &1)))
+        end)
+
+        valid = Enum.reduce(groups, valid, fn { name, group }, valid ->
+            system_error = &("Error validating group \"#{name}\" priority \"#{&1}\" systems: System \"#{&2}\" does not exist.")
+            group_error = &("Error validating group \"#{name}\" priority \"#{&1}\" dependencies: Group \"#{&2}\" does not exist.")
+
+            { valid, _ } = Enum.reduce(group.priorities, { valid, 0 }, fn priority, { valid, n } ->
+                valid = validate_key(valid, systems, priority.systems, &(system_error.(n, &1)))
+
+                valid = case priority.dependency do
+                    { "-1", _ } -> valid
+                    { group_name, _ } -> validate_key(valid, groups, [group_name], &(group_error.(n, &1)))
+                    _ -> valid
+                end
+
+                { valid, n + 1 }
+            end)
+
+            valid
+        end)
+
+        if valid == :invalid do
+            raise ValidationError
+        end
+
+        { components, systems, groups }
     end
 end
