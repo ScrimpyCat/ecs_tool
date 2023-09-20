@@ -5,9 +5,10 @@ defmodule EcsTool.System do
 
     @type name :: String.t
     @type component :: name
+    @type parallel :: { :archetype | component, size :: String.t }
     @type t :: %__MODULE__{
         name: name | nil,
-        parallel: boolean,
+        parallel: false | parallel,
         read: [component],
         write: [component]
     }

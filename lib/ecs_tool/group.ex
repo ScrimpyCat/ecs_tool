@@ -24,7 +24,7 @@ defmodule EcsTool.Group do
     @type groups :: %{ name => t }
 
     def extract(groups \\ %{}, string) do
-        append(Regex.scan(~r/ECS_SYSTEM_GROUP\((.+?),(.+?),(.+?)(,\s*PRIORITY\(.+?,\s*\(.*?\)\s*(,\s*{.*?}\s*)?\)\s*)*,?\s*\)/, string), groups)
+        append(Regex.scan(~r/ECS_SYSTEM_GROUP\((.+?),(.+?),(.+?)(,\s*PRIORITY\(.+?,\s*\(.*?\)\s*(,\s*\(.*?\)\s*)?\)\s*)*,?\s*\)/, string), groups)
     end
 
     defp append([], groups), do: groups
@@ -35,9 +35,9 @@ defmodule EcsTool.Group do
             IO.puts "\"#{name}\" group already exists"
             groups
         else
-            { _, priorities } = Regex.scan(~r/PRIORITY\((.*?),.*?\((.*?)\).*?(,.*?\{(.*?)\})?.*?\)/, match, capture: :all_but_first) |> Enum.map(fn [priority, systems|t] ->
+            { _, priorities } = Regex.scan(~r/PRIORITY\((.*?),.*?\((.*?)\).*?(,.*?\((.*?)\))?.*?\)/, match, capture: :all_but_first) |> Enum.map(fn [priority, systems|t] ->
                     { priority, _ } = priority |> String.trim_leading |> Integer.parse
-                    systems = systems |> String.split(",") |> Enum.map(&String.trim/1)
+                    systems = systems |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
                     dep = case t do
                         [_, dep] -> dep |> String.split(",") |> Enum.map(&String.trim/1) |> List.to_tuple
                         _ -> { "-1", "-1" }
