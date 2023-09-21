@@ -152,13 +152,17 @@ defmodule EcsTool.System do
 
     def component_accessors(systems, components) do
         Enum.map(systems, fn { name, system } ->
+            const_set = MapSet.new(system.read)
+
             EcsTool.Components.sort(components, system.read ++ system.write)
             |> Enum.reduce({ [], 0, 0 }, fn comp, { defines, arch_index, components_index } ->
+                qualifier = if(MapSet.member?(const_set, comp), do: " const", else: "")
+
                 case EcsTool.Components.kind(components, comp) do
-                    :archetype -> { [defines, "#define ", name, "_", comp, " ", "ECS_ARCHETYPE_VAR->components[*(ECS_ARCHETYPE_COMPONENT_INDEXES_VAR + ", to_string(arch_index), ")], ECS_ARCHETYPE_VAR->entities\n"], arch_index + 1, components_index }
-                    :packed -> { [defines, "#define ", name, "_", comp, " ", "*((ECSPackedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]))->components, ((ECSPackedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]))->entities\n"], arch_index, components_index + 1 }
-                    :indexed -> { [defines, "#define ", name, "_", comp, " ", "*(ECSIndexedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]), NULL\n"], arch_index, components_index + 1 }
-                    :local -> { defines, arch_index, components_index }
+                    :archetype -> { [defines, "#define ", name, "_", comp, " ", "ECS_ARCHETYPE_VAR->components[*(ECS_ARCHETYPE_COMPONENT_INDEXES_VAR + ", to_string(arch_index), ")], ECS_ARCHETYPE_VAR->entities,", qualifier, "\n"], arch_index + 1, components_index }
+                    :packed -> { [defines, "#define ", name, "_", comp, " ", "*((ECSPackedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]))->components, ((ECSPackedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]))->entities,", qualifier, "\n"], arch_index, components_index + 1 }
+                    :indexed -> { [defines, "#define ", name, "_", comp, " ", "*(ECSIndexedComponent*)((void*)ECS_CONTEXT_VAR + ECS_COMPONENT_OFFSETS_VAR[", to_string(components_index), "]), NULL,", qualifier, "\n"], arch_index, components_index + 1 }
+                    :local -> { [defines, "#define ", name, "_", comp, " ", "NULL, NULL,", qualifier, "\n"], arch_index, components_index }
                 end
             end)
             |> elem(0)
