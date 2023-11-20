@@ -20,7 +20,7 @@ defmodule EcsTool.System do
     }
 
     def extract(systems \\ %{}, string) do
-        append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")})\((.*?),.*?\((.*?)\).*?,.*?\((.*?)\).*?(,.*?\((.*?)\).*?|,(.*?))?\)/, string, capture: :all_but_first), systems)
+        append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")})\((.*?),\s*?\((.*?)\)\s*?,\s*?\((.*?)\)\s*?(,\s*?\((.*?)\)\s*?|,(.*?))?\)(?:[^(),]|$)/, string, capture: :all_but_first), systems)
     end
 
     defp append([], systems), do: systems
