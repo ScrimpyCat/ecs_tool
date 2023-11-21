@@ -1,5 +1,26 @@
 defmodule EcsTool do
     def setup(inputs, output, opts \\ []) do
+        accessors_file = opts[:accessors] || nil
+        env = opts[:env] || %{}
+
+        { components, systems, groups } = extract(inputs) |> validate!(env)
+        groups = EcsTool.Group.sort_systems(groups, systems)
+
+        write(output, components, systems, groups, opts)
+
+        if accessors_file do
+            { :ok, accessors_out } = File.open(accessors_file, [:write])
+
+            IO.puts(accessors_out, EcsTool.System.component_accessors(systems, components))
+            IO.puts(accessors_out, EcsTool.System.component_iterators(systems, components))
+            IO.puts(accessors_out, EcsTool.System.assert_iterators(systems, components))
+
+            File.close(accessors_out)
+        end
+    end
+
+    defp write("-", _, _, _, _), do: :ok
+    defp write(output, components, systems, groups, opts) do
         namespace = opts[:namespace] || ""
         relative = opts[:relative_indexing] || false
         max_arch = opts[:min_arch] || 0
@@ -7,10 +28,6 @@ defmodule EcsTool do
         filter_indexes = opts[:filter_indexes] || false
         accessors_file = opts[:accessors] || nil
         max_local = opts[:max_local] || nil
-        env = opts[:env] || %{}
-
-        { components, systems, groups } = extract(inputs) |> validate!(env)
-        groups = EcsTool.Group.sort_systems(groups, systems)
 
         filtered_set =
             Enum.reduce(groups, [], fn { _, %{ priorities: priorities } }, acc ->
@@ -81,16 +98,6 @@ defmodule EcsTool do
         end
 
         File.close(out)
-
-        if accessors_file do
-            { :ok, accessors_out } = File.open(accessors_file, [:write])
-
-            IO.puts(accessors_out, EcsTool.System.component_accessors(systems, components))
-            IO.puts(accessors_out, EcsTool.System.component_iterators(systems, components))
-            IO.puts(accessors_out, EcsTool.System.assert_iterators(systems, components))
-
-            File.close(accessors_out)
-        end
     end
 
     defp extract(inputs, state \\ { %EcsTool.Components{}, %{}, %{} })
