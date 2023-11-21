@@ -230,8 +230,8 @@ defmodule EcsTool.System do
 
     def resolve(systems, components, env \\ %{}) do
         Enum.map(systems, fn { name, system } ->
-            reads = Enum.reduce(system.read, [], &resolve_component(&1, components, env, &2))
-            writes = Enum.reduce(system.write, [], &resolve_component(&1, components, env, &2))
+            writes = Enum.reduce(system.write, [], &resolve_component(&1, components, env, &2)) |> Enum.filter(&match?(x when x != "", &1)) |> Enum.uniq
+            reads = (Enum.reduce(system.read, [], &resolve_component(&1, components, env, &2)) |> Enum.uniq)  -- [""|writes]
 
             { name, %{ system | read: reads, write: writes } }
         end)

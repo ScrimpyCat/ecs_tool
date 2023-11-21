@@ -109,10 +109,10 @@ defmodule EcsTool.CLI do
     defp merge_env(env, list) do
         envs = list[:env] || %{}
 
-        [name, value] = String.split(env, "=", parts: 2, trim: true)
+        [name, value] = String.split(env, "=", parts: 2)
 
-        key = "ECS_ENV(" <> name <> ")"
+        key = "ECS_ENV(" <> String.trim(name) <> ")"
 
-        [{ :env, Map.put(envs, key, [value|(envs[key] || [])]) }|list]
+        [{ :env, Map.put(envs, key, [String.trim(value)|(envs[key] || [])]) }|list]
     end
 end
