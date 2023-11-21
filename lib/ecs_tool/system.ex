@@ -227,4 +227,107 @@ defmodule EcsTool.System do
             ["#define ECS_ITER_ASSERT_", name, parallel_assertion(system.parallel, system, components)]
         end)
     end
+
+    def resolve(systems, components, env \\ %{}) do
+        Enum.map(systems, fn { name, system } ->
+            reads = Enum.reduce(system.read, [], &resolve_component(&1, components, env, &2))
+            writes = Enum.reduce(system.write, [], &resolve_component(&1, components, env, &2))
+
+            { name, %{ system | read: reads, write: writes } }
+        end)
+        |> Map.new
+    end
+
+    defp resolve_component(component, components, env, list) do
+        Enum.reduce(env[component] || [component], list, &resolve_component_expression(&1, &2, components))
+    end
+
+    defp resolve_component_expression("ECS_EVERY_COMPONENT", acc, components), do: include_components(components, acc, { :_, :_ }, true)
+    defp resolve_component_expression("ECS_EVERY_ARCHETYPE_COMPONENT", acc, components), do: include_components(components, acc, { :archetype, :_ }, true)
+    defp resolve_component_expression("ECS_EVERY_PACKED_COMPONENT", acc, components), do: include_components(components, acc, { :packed, :_ }, true)
+    defp resolve_component_expression("ECS_EVERY_INDEXED_COMPONENT", acc, components), do: include_components(components, acc, { :indexed, :_ }, true)
+    defp resolve_component_expression("ECS_EVERY_LOCAL_COMPONENT", acc, components), do: include_components(components, acc, { :local, :_ }, true)
+    defp resolve_component_expression("ECS_EVERY_NORMAL_COMPONENT", acc, components), do: include_components(components, acc, { :_, [] }, true)
+    defp resolve_component_expression("ECS_EVERY_NORMAL_ARCHETYPE_COMPONENT", acc, components), do: include_components(components, acc, { :archetype, [] }, true)
+    defp resolve_component_expression("ECS_EVERY_NORMAL_PACKED_COMPONENT", acc, components), do: include_components(components, acc, { :packed, [] }, true)
+    defp resolve_component_expression("ECS_EVERY_NORMAL_INDEXED_COMPONENT", acc, components), do: include_components(components, acc, { :indexed, [] }, true)
+    defp resolve_component_expression("ECS_EVERY_NORMAL_LOCAL_COMPONENT", acc, components), do: include_components(components, acc, { :local, [] }, true)
+    defp resolve_component_expression("ECS_EVERY_DUPLICATE_COMPONENT", acc, components), do: include_components(components, acc, { :_, [:duplicate] }, true)
+    defp resolve_component_expression("ECS_EVERY_DUPLICATE_ARCHETYPE_COMPONENT", acc, components), do: include_components(components, acc, { :archetype, [:duplicate] }, true)
+    defp resolve_component_expression("ECS_EVERY_DUPLICATE_PACKED_COMPONENT", acc, components), do: include_components(components, acc, { :packed, [:duplicate] }, true)
+    defp resolve_component_expression("ECS_EVERY_DUPLICATE_INDEXED_COMPONENT", acc, components), do: include_components(components, acc, { :indexed, [:duplicate] }, true)
+    defp resolve_component_expression("ECS_EVERY_DUPLICATE_LOCAL_COMPONENT", acc, components), do: include_components(components, acc, { :local, [:duplicate] }, true)
+    defp resolve_component_expression("ECS_EVERY_TAG_COMPONENT", acc, components), do: include_components(components, acc, { :_, [:tag] }, true)
+    defp resolve_component_expression("ECS_EVERY_TAG_ARCHETYPE_COMPONENT", acc, components), do: include_components(components, acc, { :archetype, [:tag] }, true)
+    defp resolve_component_expression("ECS_EVERY_TAG_PACKED_COMPONENT", acc, components), do: include_components(components, acc, { :packed, [:tag] }, true)
+    defp resolve_component_expression("ECS_EVERY_TAG_INDEXED_COMPONENT", acc, components), do: include_components(components, acc, { :indexed, [:tag] }, true)
+    defp resolve_component_expression("ECS_EVERY_TAG_LOCAL_COMPONENT", acc, components), do: include_components(components, acc, { :local, [:tag] }, true)
+    defp resolve_component_expression("ECS_MATCH_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :_, :_ }, match)
+    defp resolve_component_expression("ECS_MATCH_ARCHETYPE_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :archetype, :_ }, match)
+    defp resolve_component_expression("ECS_MATCH_PACKED_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :packed, :_ }, match)
+    defp resolve_component_expression("ECS_MATCH_INDEXED_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :indexed, :_ }, match)
+    defp resolve_component_expression("ECS_MATCH_LOCAL_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :local, :_ }, match)
+    defp resolve_component_expression("ECS_MATCH_NORMAL_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :_, [] }, match)
+    defp resolve_component_expression("ECS_MATCH_NORMAL_ARCHETYPE_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :archetype, [] }, match)
+    defp resolve_component_expression("ECS_MATCH_NORMAL_PACKED_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :packed, [] }, match)
+    defp resolve_component_expression("ECS_MATCH_NORMAL_INDEXED_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :indexed, [] }, match)
+    defp resolve_component_expression("ECS_MATCH_NORMAL_LOCAL_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :local, [] }, match)
+    defp resolve_component_expression("ECS_MATCH_DUPLICATE_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :_, [:duplicate] }, match)
+    defp resolve_component_expression("ECS_MATCH_DUPLICATE_ARCHETYPE_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :archetype, [:duplicate] }, match)
+    defp resolve_component_expression("ECS_MATCH_DUPLICATE_PACKED_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :packed, [:duplicate] }, match)
+    defp resolve_component_expression("ECS_MATCH_DUPLICATE_INDEXED_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :indexed, [:duplicate] }, match)
+    defp resolve_component_expression("ECS_MATCH_DUPLICATE_LOCAL_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :local, [:duplicate] }, match)
+    defp resolve_component_expression("ECS_MATCH_TAG_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :_, [:tag] }, match)
+    defp resolve_component_expression("ECS_MATCH_TAG_ARCHETYPE_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :archetype, [:tag] }, match)
+    defp resolve_component_expression("ECS_MATCH_TAG_PACKED_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :packed, [:tag] }, match)
+    defp resolve_component_expression("ECS_MATCH_TAG_INDEXED_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :indexed, [:tag] }, match)
+    defp resolve_component_expression("ECS_MATCH_TAG_LOCAL_COMPONENT" <> match, acc, components), do: include_components(components, acc, { :local, [:tag] }, match)
+    defp resolve_component_expression(component, acc, _), do: [component|acc]
+
+    defp include_components(components, acc, { :_, :_ }, match) do
+        Enum.reduce(components.names, acc, fn
+            { name, _ }, acc -> if(name_match?(name, match), do: [name|acc], else: acc)
+        end)
+    end
+    defp include_components(components, acc, { :_, mods }, match) do
+        Enum.reduce(components.names, acc, fn
+            { name, { _, ^mods } }, acc -> if(name_match?(name, match), do: [name|acc], else: acc)
+            { name, { _, modifiers } }, acc ->
+                if modifiers_match?(modifiers, mods) do
+                    if(name_match?(name, match), do: [name|acc], else: acc)
+                else
+                    acc
+                end
+            _, acc -> acc
+        end)
+    end
+    defp include_components(components, acc, { type, :_ }, match) do
+        Enum.reduce(components.names, acc, fn
+            { name, { ^type, _ } }, acc -> if(name_match?(name, match), do: [name|acc], else: acc)
+            _, acc -> acc
+        end)
+    end
+    defp include_components(components, acc, { type, mods }, match) do
+        Enum.reduce(components.names, acc, fn
+            { name, { ^type, ^mods } }, acc -> if(name_match?(name, match), do: [name|acc], else: acc)
+            { name, { ^type, modifiers } }, acc ->
+                if modifiers_match?(modifiers, mods) do
+                    if(name_match?(name, match), do: [name|acc], else: acc)
+                else
+                    acc
+                end
+            _, acc -> acc
+        end)
+    end
+
+    defp modifiers_match?(a, b) do
+        Enum.filter(a, fn
+            { :destructor, _ } -> false
+            _ -> true
+        end)
+        |> Enum.sort == Enum.sort(b)
+    end
+
+    defp name_match?(_, true), do: true
+    defp name_match?(name, match), do: Regex.match?(~r/#{match}/, name)
 end

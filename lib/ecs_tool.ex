@@ -7,8 +7,9 @@ defmodule EcsTool do
         filter_indexes = opts[:filter_indexes] || false
         accessors_file = opts[:accessors] || nil
         max_local = opts[:max_local] || nil
+        env = %{}
 
-        { components, systems, groups } = extract(inputs) |> validate!
+        { components, systems, groups } = extract(inputs) |> validate!(env)
         groups = EcsTool.Group.sort_systems(groups, systems)
 
         filtered_set =
@@ -119,7 +120,9 @@ defmodule EcsTool do
         defexception message: "Validation failure"
     end
 
-    defp validate!({ components, systems, groups }) do
+    defp validate!({ components, systems, groups }, env) do
+        systems = EcsTool.System.resolve(systems, components, env)
+
         valid = Enum.reduce(systems, :valid, fn { name, system }, valid ->
             error = &("Error validating system \"#{name}\" #{&1} components: Component \"#{&2}\" does not exist.")
 
