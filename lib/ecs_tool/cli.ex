@@ -24,6 +24,8 @@ defmodule EcsTool.CLI do
       * `--filter-indexes`, `-fi` - Enable index filtering for archetypes.
       * `--accessors`, `-a FILE` - File to write the system component accessors.
       * `--max-local`, `-ml MAX` - Set the maximum number of local components. Defaults to number of local components parsed.
+      * `--env`, `-e NAME=VALUE` - Adds a value to the ECS_ENV variable.
+      * `--config`, `-c FILE` - Load a set of ECS_ENV variables from the file.
 
       ### config
         ecs_tool config arch_count
@@ -44,6 +46,8 @@ defmodule EcsTool.CLI do
     def setup([cmd|args], opts) when cmd in ["-fi", "--filter-indexes"], do: setup(args, [{ :filter_indexes, true }|opts])
     def setup([cmd, file|args], opts) when cmd in ["-a", "--accessors"], do: setup(args, [{ :accessors, file }|opts])
     def setup([cmd, min|args], opts) when cmd in ["-ml", "--max-local"], do: setup(args, [{ :max_local, to_integer(min) }|opts])
+    def setup([cmd, env|args], opts) when cmd in ["-e", "--env"], do: setup(args, merge_env(env, opts))
+    def setup([cmd, file|args], opts) when cmd in ["-c", "--config"], do: setup(args, File.stream!(file) |> Enum.reduce(opts, &merge_env(&1, &2)))
     def setup([file], opts) do
         Enum.reduce(opts, [], fn
             { :input, input }, acc -> [{ input, File.dir?(input) }|acc]
@@ -98,5 +102,15 @@ defmodule EcsTool.CLI do
     defp to_integer(value) do
         { value, _ } = Integer.parse(value)
         value
+    end
+
+    defp merge_env(env, list) do
+        envs = list[:env] || %{}
+
+        [name, value] = String.split(env, "=", parts: 2, trim: true)
+
+        key = "ECS_ENV(" <> name <> ")"
+
+        [{ :env, Map.put(envs, key, [value|(envs[key] || [])]) }|list]
     end
 end

@@ -7,7 +7,7 @@ defmodule EcsTool do
         filter_indexes = opts[:filter_indexes] || false
         accessors_file = opts[:accessors] || nil
         max_local = opts[:max_local] || nil
-        env = %{}
+        env = opts[:env] || %{}
 
         { components, systems, groups } = extract(inputs) |> validate!(env)
         groups = EcsTool.Group.sort_systems(groups, systems)
