@@ -15,7 +15,8 @@ defmodule EcsTool.CLI do
 
       Options:
       * `--input`, `-i FILE` - Add an input file to read from. If the file is a directory then it finds all `*.c` and `*.h` files within it.
-      Defaults to finding all `*.c` or `*.h` files in the working directory.
+      Any additional file paths up until the last command or file will be included. Defaults to finding all `*.c` or `*.h` files in the working
+      directory.
       * `--namespace`, `-n NAMESPACE` - Set the namespace to be used. Defaults to no namespace.
       * `--write`, `-w TYPE` - Set what to write, the allowed types are: `archetype_indexes`, `components`, `systems`, `groups`. Defaults to
       all of them.
@@ -48,6 +49,7 @@ defmodule EcsTool.CLI do
     def setup([cmd, min|args], opts) when cmd in ["-ml", "--max-local"], do: setup(args, [{ :max_local, to_integer(min) }|opts])
     def setup([cmd, env|args], opts) when cmd in ["-e", "--env"], do: setup(args, merge_env(env, opts))
     def setup([cmd, file|args], opts) when cmd in ["-c", "--config"], do: setup(args, File.stream!(file) |> Enum.reduce(opts, &merge_env(&1, &2)))
+    def setup([file|args], opts = [{ :input, _ }|_]), do: setup(args, [{ :input, file }|opts])
     def setup([file], opts) do
         Enum.reduce(opts, [], fn
             { :input, input }, acc -> [{ input, File.dir?(input) }|acc]
