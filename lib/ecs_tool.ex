@@ -3,7 +3,7 @@ defmodule EcsTool do
         accessors_file = opts[:accessors] || nil
         env = opts[:env] || %{}
 
-        { components, systems, groups } = extract(inputs) |> validate!(env)
+        { components, systems, groups } = extract(inputs, env) |> validate!(env)
         groups = EcsTool.Group.sort_systems(groups, systems)
 
         write(output, components, systems, groups, opts)
@@ -100,13 +100,13 @@ defmodule EcsTool do
         File.close(out)
     end
 
-    defp extract(inputs, state \\ { %EcsTool.Components{}, %{}, %{} })
-    defp extract([h|t], state) when is_list(h), do: extract(t, extract(h, state))
-    defp extract([h|t], { components, systems, groups }) do
+    defp extract(inputs, env, state \\ { %EcsTool.Components{}, %{}, %{} })
+    defp extract([h|t], env, state) when is_list(h), do: extract(t, env, extract(h, env, state))
+    defp extract([h|t], env, { components, systems, groups }) do
         source = File.read!(h)
-        extract(t, { EcsTool.Components.extract(components, source), EcsTool.System.extract(systems, source), EcsTool.Group.extract(groups, source) })
+        extract(t, env, { EcsTool.Components.extract(components, source, env), EcsTool.System.extract(systems, source), EcsTool.Group.extract(groups, source) })
     end
-    defp extract([], state), do: state
+    defp extract([], _, state), do: state
 
     def config(n) do
         EcsTool.Config.defines(n) |> IO.puts

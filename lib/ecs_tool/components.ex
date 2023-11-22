@@ -32,12 +32,16 @@ defmodule EcsTool.Components do
 
     @storage_types [:archetype, :packed, :indexed, :local]
 
-    def extract(components \\ %__MODULE__{}, string) do
-        append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")}|ECS_DESTRUCTOR)\((.*?)\)/, string, capture: :all_but_first), components)
+    def extract(components \\ %__MODULE__{}, string, env \\ %{}) do
+        env = Enum.map(env, fn { "ECS_ENV(" <> k, v } ->
+            { k |> String.trim_trailing(")"), Enum.join(v) }
+        end) |> Map.new
+
+        append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")}|ECS_DESTRUCTOR)\((.*?)\)(?:[^(), +\-*\/!<>%&|]|$)/, string, capture: :all_but_first), components, env)
     end
 
-    defp append([], components), do: components
-    defp append([["ECS_DESTRUCTOR", args]|t], components = %{ names: names }) do
+    defp append([], components, _), do: components
+    defp append([["ECS_DESTRUCTOR", args]|t], components = %{ names: names }, env) do
         [destructor|args] = String.split(args, ",")
         destructor = String.trim(destructor)
 
@@ -51,9 +55,9 @@ defmodule EcsTool.Components do
             end
         end)
 
-        append(t, %{ components | names: names })
+        append(t, %{ components | names: names }, env)
     end
-    defp append([[type, args]|t], components = %{ names: names }) do
+    defp append([[type, args]|t], components = %{ names: names }, env) do
         { field, modifiers } = @types[type]
         { unordered, ordered } = Map.get(components, field)
 
@@ -64,23 +68,43 @@ defmodule EcsTool.Components do
             IO.puts "\"#{name}\" component already exists"
             components
         else
-            appended = case args do
-                [] -> { [name|unordered], ordered }
-                [index] ->
-                    { index, _ } = String.trim(index) |> Integer.parse
+            { appended, modifiers } = case args do
+                [] -> { { [name|unordered], ordered }, modifiers }
+                [id] ->
+                    id = String.trim(id)
+                    { :ok, index } = resolve_id(id, env)
+
+                    modifiers = if String.match?(id, ~r/[a-zA-Z_]/) do
+                        [{ :id, id }|modifiers]
+                    else
+                        modifiers
+                    end
 
                     if Map.has_key?(ordered, index) do
                         IO.puts "#{type} already exists for index (#{index}): replacing \"#{ordered[index]}\" with \"#{name}\""
                     end
 
-                    { unordered, Map.put(ordered, index, name) }
+                    { { unordered, Map.put(ordered, index, name) }, modifiers }
             end
 
             %{ components | field => appended, names: Map.put(names, name, { field, modifiers }) }
         end
 
-        append(t, components)
+        append(t, components, env)
     end
+
+    defp resolve_id(id, env, _ \\ "")
+    defp resolve_id(id, _, id) do
+        case Regex.scan(~r/[a-zA-z_][a-zA-Z0-9_]+/, id) do
+            [] ->
+                { index, _ } = Code.eval_string(id)
+                { :ok, index }
+            unresolved ->
+                IO.puts "#{IO.ANSI.red}env values missing for names: #{Enum.join(unresolved, ", ")}#{IO.ANSI.default_color}"
+                :error
+        end
+    end
+    defp resolve_id(id, env, _), do: resolve_id(String.replace(id, ~r/[a-zA-z_][a-zA-Z0-9_]+/, &(env[&1] || &1)), env, id)
 
     def kind(components, name), do: components.names[name] |> elem(0)
 
@@ -123,6 +147,7 @@ defmodule EcsTool.Components do
     defp unique_modifier_flag(_, _, [], unused), do: { "", unused }
 
     defp modifier_flags(modifiers, allowed \\ [:duplicate, :tag, :destructor], acc \\ [])
+    defp modifier_flags([{ :id, _ }|t], allowed, acc), do: modifier_flags(t, allowed, acc)
     defp modifier_flags([:duplicate|t], allowed, acc) do
         { flag, allowed } = unique_modifier_flag(:duplicate, " | ECSComponentStorageModifierDuplicate", allowed)
         modifier_flags([:destructor|t], allowed, [flag|acc])
@@ -134,13 +159,21 @@ defmodule EcsTool.Components do
     end
     defp modifier_flags([], _, acc), do: acc
 
+    defp component_id(modifiers, n) do
+        case modifiers[:id] do
+            nil -> Integer.to_string(n)
+            id -> ["(", id, ")"]
+        end
+    end
+
     def defines(components, _namespace, local_max \\ nil) do
         fun = fn
             nil, { defs, n, type, names } -> { defs, n + 1, type, names }
             name, { defs, n, type, names } ->
-                mods = modifiers(components, name) |> modifier_flags()
+                mods = modifiers(components, name)
+                flags = modifier_flags(mods)
 
-                { [defs, ["#define ", to_macro(name), " (", type.(names), mods, " | ", Integer.to_string(n), ")\n"]], n + 1, type, [name|names] }
+                { [defs, ["#define ", to_macro(name), " (", type.(names), flags, " | ", component_id(mods, n), ")\n"]], n + 1, type, [name|names] }
         end
 
         Enum.map(@storage_types, fn
@@ -204,6 +237,7 @@ defmodule EcsTool.Components do
     defp format_as_index(components, x) do
         { l, r } = case modifiers(components, x) do
             [] -> { "", "" }
+            [{ :id, _ }] -> { "", "" }
             _ -> { "(", " & ~ECSComponentStorageMask)" }
         end
 
