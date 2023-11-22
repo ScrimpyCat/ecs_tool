@@ -19,7 +19,7 @@ defmodule EcsTool.CLI do
       directory.
       * `--namespace`, `-n NAMESPACE` - Set the namespace to be used. Defaults to no namespace.
       * `--write`, `-w TYPE` - Set what to write, the allowed types are: `archetype_indexes`, `components`, `systems`, `groups`. Defaults to
-      all of them.
+      all of them. Optionally these can be further broken down by using `TYPE:SECTION`. See __Write Sections__ for available options.
       * `--min-arch`, `-m MIN` - Set the minimum archetype size. Defaults to `0`.
       * `--relative-indexing`, `-r` - Enable relative indexing.
       * `--filter-indexes`, `-fi` - Enable index filtering for archetypes.
@@ -27,6 +27,11 @@ defmodule EcsTool.CLI do
       * `--max-local`, `-ml MAX` - Set the maximum number of local components. Defaults to number of local components parsed.
       * `--env`, `-e NAME=VALUE` - Adds a value to the ECS_ENV variable.
       * `--config`, `-c FILE` - Load a set of ECS_ENV variables from the file.
+
+      Write Sections:
+      * `components:ids` - Write the component ID defines.
+      * `components:data` - Write the component data.
+      * `components:deps` - Write the component archetype dependencies.
 
       ### config
         ecs_tool config arch_count
@@ -85,20 +90,18 @@ defmodule EcsTool.CLI do
         end
     end
 
-    defp to_write_type("archetype_indexes"), do: :archetype_indexes
-    defp to_write_type("components"), do: :components
-    defp to_write_type("systems"), do: :systems
-    defp to_write_type("groups"), do: :groups
-    defp to_write_type(_), do: nil
+    defp add_write_type("archetype_indexes", write), do: [:archetype_indexes|write]
+    defp add_write_type("components", write), do: [{ :components, :ids }, { :components, :data }, { :components, :deps }|write]
+    defp add_write_type("components:ids", write), do: [{ :components, :ids }|write]
+    defp add_write_type("components:data", write), do: [{ :components, :data }|write]
+    defp add_write_type("components:deps", write), do: [{ :components, :deps }|write]
+    defp add_write_type("systems", write), do: [:systems|write]
+    defp add_write_type("groups", write), do: [:groups|write]
+    defp add_write_type(_, write), do: write
 
     defp merge_write_types(type, list) do
-        type
-        |> String.downcase
-        |> to_write_type
-        |> case do
-            nil -> list
-            sym -> [{ :write, [sym|(list[:write] || [])] }|list]
-        end
+        write = type |> String.downcase |> add_write_type(list[:write] || [])
+        [{ :write, write }|list]
     end
 
     defp to_integer(value) do

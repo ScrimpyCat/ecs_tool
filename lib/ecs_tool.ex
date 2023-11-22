@@ -24,7 +24,7 @@ defmodule EcsTool do
         namespace = opts[:namespace] || ""
         relative = opts[:relative_indexing] || false
         max_arch = opts[:min_arch] || 0
-        write = opts[:write] || [:archetype_indexes, :components, :systems, :groups]
+        write = opts[:write] || [:archetype_indexes, :systems, :groups, components: :ids, components: :data, components: :deps]
         filter_indexes = opts[:filter_indexes] || false
         accessors_file = opts[:accessors] || nil
         max_local = opts[:max_local] || nil
@@ -56,25 +56,31 @@ defmodule EcsTool do
             IO.puts(out, defines)
         end
 
-        if Enum.find(write, &match?(:components, &1)) do
-            if max_local do
-                IO.puts(out, ["_Static_assert(", to_string(max_local), " == ECS_LOCAL_COMPONENT_MAX, \"Regenerate file with new ECS_LOCAL_COMPONENT_MAX value.\");\n"])
+        if Enum.find(write, &match?({ :components, _ }, &1)) do
+            if Enum.find(write, &match?({ :components, :ids }, &1)) do
+                if max_local do
+                    IO.puts(out, ["_Static_assert(", to_string(max_local), " == ECS_LOCAL_COMPONENT_MAX, \"Regenerate file with new ECS_LOCAL_COMPONENT_MAX value.\");\n"])
+                end
+
+                IO.puts(out, EcsTool.Components.defines(components, namespace, max_local))
             end
 
-            IO.puts(out, EcsTool.Components.defines(components, namespace, max_local))
+            if Enum.find(write, &match?({ :components, :data }, &1)) do
+                IO.puts(out, EcsTool.Components.local_storage_size(components, namespace, max_local))
 
-            IO.puts(out, EcsTool.Components.local_storage_size(components, namespace, max_local))
+                IO.puts(out, EcsTool.Components.component_lookup(components, namespace))
 
-            IO.puts(out, EcsTool.Components.component_lookup(components, namespace))
+                IO.puts(out, EcsTool.Components.component_sizes(components, namespace))
 
-            IO.puts(out, EcsTool.Components.component_sizes(components, namespace))
+                IO.puts(out, EcsTool.Components.component_destructors(components, namespace))
+            end
 
-            IO.puts(out, EcsTool.Components.component_destructors(components, namespace))
-
-            { deps, counts, access } = EcsTool.Components.archetype_deps(components, namespace, relative, MapSet.new(filtered_set))
-            IO.puts(out, deps)
-            IO.puts(out, counts)
-            IO.puts(out, access)
+            if Enum.find(write, &match?({ :components, :deps }, &1)) do
+                { deps, counts, access } = EcsTool.Components.archetype_deps(components, namespace, relative, MapSet.new(filtered_set))
+                IO.puts(out, deps)
+                IO.puts(out, counts)
+                IO.puts(out, access)
+            end
         end
 
         if Enum.find(write, &match?(:systems, &1)) do
