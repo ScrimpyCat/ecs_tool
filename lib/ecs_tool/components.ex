@@ -197,6 +197,63 @@ defmodule EcsTool.Components do
         end)
     end
 
+    def define_envs(components, _namespace, env) do
+        env = Enum.map(env, fn { "ECS_ENV(" <> k, v } ->
+            { k |> String.trim_trailing(")"), Enum.join(v) }
+        end) |> Map.new
+
+        Enum.map(@storage_types, fn
+            kind ->
+                get(components, kind)
+                |> Enum.reduce([], fn name, acc ->
+                    mods = modifiers(components, name)
+                    case mods[:id] do
+                        nil -> acc
+                        id -> get_id_env_names(id, env)
+                    end
+                end)
+        end)
+        |> flatten()
+        |> Enum.uniq
+        |> Enum.sort
+        |> Enum.map(fn name ->
+            value = env[name]
+            [
+                "\n",
+                "#ifndef ", name, "\n",
+                "#define ", name, " ", value, "\n",
+                "#endif\n"
+            ]
+        end)
+    end
+
+    defp get_id_env_names(id, env) do
+        Regex.scan(~r/[a-zA-z_][a-zA-Z0-9_]+/, id)
+        |> Enum.map(fn [name] ->
+            [name|get_id_env_names(env[name], env)]
+        end)
+    end
+
+    defp flatten([h|t]) when is_list(h), do: flatten(h) ++ flatten(t)
+    defp flatten([h|t]), do: [h|flatten(t)]
+    defp flatten([]), do: []
+
+    defp expand_resolve_id(id, env, _ \\ [])
+    defp expand_resolve_id(id, _, id) do
+        case Regex.scan(~r/[a-zA-z_][a-zA-Z0-9_]+/, id) do
+            [] ->
+                { index, _ } = Code.eval_string(id)
+                { :ok, index }
+            unresolved ->
+                IO.puts "#{IO.ANSI.red}env values missing for names: #{Enum.join(unresolved, ", ")}#{IO.ANSI.default_color}"
+                :error
+        end
+    end
+    defp expand_resolve_id(id, env, _) do
+         Regex.scan(~r/[a-zA-z_][a-zA-Z0-9_]+/, id)
+        resolve_id(String.replace(id, ~r/[a-zA-z_][a-zA-Z0-9_]+/, &(env[&1] || &1)), env, id)
+    end
+
     def local_storage_size(components, namespace, local_max \\ nil) do
         { count, name } = get(components, :local) |> Enum.reduce({ 0, nil }, fn name, { n, _ } -> { n + 1, name } end)
 

@@ -15,11 +15,12 @@ defmodule EcsTool.CLI do
 
       Options:
       * `--input`, `-i FILE` - Add an input file to read from. If the file is a directory then it finds all `*.c` and `*.h` files within it.
-      Any additional file paths up until the last command or file will be included. Defaults to finding all `*.c` or `*.h` files in the working
+      Any additional file paths up until the next command or file will be included. Defaults to finding all `*.c` or `*.h` files in the working
       directory.
       * `--namespace`, `-n NAMESPACE` - Set the namespace to be used. Defaults to no namespace.
-      * `--write`, `-w TYPE` - Set what to write, the allowed types are: `archetype_indexes`, `components`, `systems`, `groups`. Defaults to
-      all of them. Optionally these can be further broken down by using `TYPE:SECTION`. See __Write Sections__ for available options.
+      * `--write`, `-w TYPE` - Set what to write, the allowed types are: `archetype_indexes`, `components`, `systems`, `groups`. Any additional
+      types up until the next command or file will be included. Defaults to all of them. Optionally these can be further broken down by using
+      `TYPE:SECTION`. See __Write Sections__ for available options.
       * `--min-arch`, `-m MIN` - Set the minimum archetype size. Defaults to `0`.
       * `--relative-indexing`, `-r` - Enable relative indexing.
       * `--filter-indexes`, `-fi` - Enable index filtering for archetypes.
@@ -30,6 +31,7 @@ defmodule EcsTool.CLI do
 
       Write Sections:
       * `components:ids` - Write the component ID defines.
+      * `components:env` - Write the component defaults as the env values.
       * `components:data` - Write the component data.
       * `components:deps` - Write the component archetype dependencies.
 
@@ -54,7 +56,8 @@ defmodule EcsTool.CLI do
     def setup([cmd, min|args], opts) when cmd in ["-ml", "--max-local"], do: setup(args, [{ :max_local, to_integer(min) }|opts])
     def setup([cmd, env|args], opts) when cmd in ["-e", "--env"], do: setup(args, merge_env(env, opts))
     def setup([cmd, file|args], opts) when cmd in ["-c", "--config"], do: setup(args, File.stream!(file) |> Enum.reduce(opts, &merge_env(&1, &2)))
-    def setup([file|args], opts = [{ :input, _ }|_]), do: setup(args, [{ :input, file }|opts])
+    def setup([file|args = [_|_]], opts = [{ :input, _ }|_]), do: setup(args, [{ :input, file }|opts])
+    def setup([type|args = [_|_]], opts = [{ :write, _ }|_]), do: setup(args, merge_write_types(type, opts))
     def setup([file], opts) do
         Enum.reduce(opts, [], fn
             { :input, input }, acc -> [{ input, File.dir?(input) }|acc]
@@ -91,8 +94,9 @@ defmodule EcsTool.CLI do
     end
 
     defp add_write_type("archetype_indexes", write), do: [:archetype_indexes|write]
-    defp add_write_type("components", write), do: [{ :components, :ids }, { :components, :data }, { :components, :deps }|write]
+    defp add_write_type("components", write), do: [{ :components, :ids }, { :components, :env }, { :components, :data }, { :components, :deps }|write]
     defp add_write_type("components:ids", write), do: [{ :components, :ids }|write]
+    defp add_write_type("components:env", write), do: [{ :components, :env }|write]
     defp add_write_type("components:data", write), do: [{ :components, :data }|write]
     defp add_write_type("components:deps", write), do: [{ :components, :deps }|write]
     defp add_write_type("systems", write), do: [:systems|write]

@@ -28,6 +28,7 @@ defmodule EcsTool do
         filter_indexes = opts[:filter_indexes] || false
         accessors_file = opts[:accessors] || nil
         max_local = opts[:max_local] || nil
+        env = opts[:env] || %{}
 
         filtered_set =
             Enum.reduce(groups, [], fn { _, %{ priorities: priorities } }, acc ->
@@ -63,6 +64,10 @@ defmodule EcsTool do
                 end
 
                 IO.puts(out, EcsTool.Components.defines(components, namespace, max_local))
+            end
+
+            if Enum.find(write, &match?({ :components, :env }, &1)) do
+                IO.puts(out, EcsTool.Components.define_envs(components, namespace, env))
             end
 
             if Enum.find(write, &match?({ :components, :data }, &1)) do
