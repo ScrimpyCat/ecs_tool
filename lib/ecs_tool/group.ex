@@ -32,7 +32,7 @@ defmodule EcsTool.Group do
         name = String.trim(name)
 
         groups = if Map.has_key?(groups, name) do
-            IO.puts "\"#{name}\" group already exists"
+            IO.puts "#{IO.ANSI.red}\"#{name}\" group already exists#{IO.ANSI.default_color}"
             groups
         else
             { _, priorities } = Regex.scan(~r/PRIORITY\((.*?),.*?\((.*?)\).*?(,.*?\((.*?)\))?.*?\)/, match, capture: :all_but_first) |> Enum.map(fn [priority, systems|t] ->

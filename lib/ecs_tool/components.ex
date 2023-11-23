@@ -47,7 +47,7 @@ defmodule EcsTool.Components do
             case acc do
                 %{ ^name => { type, modifiers } } -> %{ acc | name => { type, [{ :destructor, destructor }|modifiers] } }
                 acc ->
-                    IO.puts "\"#{name}\" component does not exist"
+                    IO.puts "#{IO.ANSI.red}\"#{name}\" component does not exist#{IO.ANSI.default_color}"
                     acc
             end
         end)
@@ -62,7 +62,7 @@ defmodule EcsTool.Components do
         name = String.trim(name)
 
         components = if Map.has_key?(names, name) do
-            IO.puts "\"#{name}\" component already exists"
+            IO.puts "#{IO.ANSI.red}\"#{name}\" component already exists#{IO.ANSI.default_color}"
             components
         else
             { appended, modifiers } = case args do
@@ -78,7 +78,7 @@ defmodule EcsTool.Components do
                     end
 
                     if Map.has_key?(ordered, index) do
-                        IO.puts "#{type} already exists for index (#{index}): replacing \"#{ordered[index]}\" with \"#{name}\""
+                        IO.puts "#{IO.ANSI.red}#{type} already exists for index (#{index}): replacing \"#{ordered[index]}\" with \"#{name}\"#{IO.ANSI.default_color}"
                     end
 
                     { { unordered, Map.put(ordered, index, name) }, modifiers }

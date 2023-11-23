@@ -29,7 +29,7 @@ defmodule EcsTool.System do
         name = String.trim(name)
 
         systems = if Map.has_key?(systems, name) do
-            IO.puts "\"#{name}\" system already exists"
+            IO.puts "#{IO.ANSI.red}\"#{name}\" system already exists#{IO.ANSI.default_color}"
             systems
         else
             writes = write |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
