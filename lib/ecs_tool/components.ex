@@ -33,10 +33,7 @@ defmodule EcsTool.Components do
     @storage_types [:archetype, :packed, :indexed, :local]
 
     def extract(components \\ %__MODULE__{}, string, env \\ %{}) do
-        env = Enum.map(env, fn { "ECS_ENV(" <> k, v } ->
-            { k |> String.trim_trailing(")"), Enum.join(v) }
-        end) |> Map.new
-
+        env = flatten_env(env)
         append(Regex.scan(~r/(#{@types |> Map.keys |> Enum.join("|")}|ECS_DESTRUCTOR)\((.*?)\)(?:[^(), +\-*\/!<>%&|]|$)/, string, capture: :all_but_first), components, env)
     end
 
@@ -91,6 +88,13 @@ defmodule EcsTool.Components do
         end
 
         append(t, components, env)
+    end
+
+    defp flatten_env(env) do
+        Enum.map(env, fn { "ECS_ENV(" <> k, [v|_] } ->
+            { k |> String.trim_trailing(")"), v }
+        end)
+        |> Map.new
     end
 
     defp resolve_id(id, env, _ \\ "")
@@ -198,9 +202,7 @@ defmodule EcsTool.Components do
     end
 
     def define_envs(components, _namespace, env) do
-        env = Enum.map(env, fn { "ECS_ENV(" <> k, v } ->
-            { k |> String.trim_trailing(")"), Enum.join(v) }
-        end) |> Map.new
+        env = flatten_env(env)
 
         Enum.map(@storage_types, fn
             kind ->
